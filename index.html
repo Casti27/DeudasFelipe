@@ -184,7 +184,7 @@
 <div id="modal-root"></div>
 
 <script>
-const STORAGE_KEY = 'libro-cuentas-datos-v21';
+const STORAGE_KEY = 'libro-cuentas-datos-v22';
 let currentTab = 'resumen';
 let data = null;
 let showDetailsQ5 = false;
@@ -198,19 +198,7 @@ function defaultData(){
     saldoAcumuladoAnterior: 0,
     config: {
       diasPago: [5, 20],
-      moneda: 'COP',
-      ingresoBase: {
-        sueldoMensual: 2100000,
-        bonoMonto: 400000,
-        bonoQuincena: 5,
-        auxTransporte: 162000,
-        auxAplica: 'cada',
-        auxQuincena: null,
-        deduccion: 8,
-        deduccionTipo: 'porcentaje',
-        deduccionAplica: 'cada',
-        deduccionQuincena: null
-      }
+      moneda: 'COP'
     },
     ingresos: [],
     gastos: [
@@ -321,7 +309,6 @@ function defaultData(){
 function migrar(d){
   if(d.saldoAcumuladoAnterior === undefined) d.saldoAcumuladoAnterior = 0;
   if(!d.config.diasPago) d.config.diasPago = [5,20];
-  if(!d.config.ingresoBase) d.config.ingresoBase = defaultData().config.ingresoBase;
   if(d.deudas) {
     d.deudas.forEach(x => { 
       if(!x.tipo) x.tipo = 'cuota_fija'; 
@@ -422,23 +409,14 @@ function rangoLabel(inicio, fin){
 
 function enRango(iso, inicio, fin){ const d = parseDate(iso); return d >= inicio && d <= fin; }
 
+// Sueldo neto exacto asignado a cada quincena
 function ingresoAutomatico(periodo){
-  const cfg = data.config.ingresoBase;
-  let total = (Number(cfg.sueldoMensual)||0)/2;
-  
-  if(cfg.bonoMonto && cfg.bonoQuincena === periodo.pagaEl){
-    total += Number(cfg.bonoMonto);
+  if(periodo.pagaEl === 5){
+    return 1390548; // Valor neto quincena del 5
+  } else if(periodo.pagaEl === 20){
+    return 1090548; // Valor neto quincena del 20
   }
-  if(cfg.auxTransporte){
-    if(cfg.auxAplica === 'cada') total += Number(cfg.auxTransporte)/2;
-    else if(cfg.auxAplica === 'una' && cfg.auxQuincena === periodo.pagaEl) total += Number(cfg.auxTransporte);
-  }
-  if(cfg.deduccion){
-    const base = cfg.deduccionTipo === 'porcentaje' ? (Number(cfg.sueldoMensual) * Number(cfg.deduccion) / 100) : Number(cfg.deduccion);
-    if(cfg.deduccionAplica === 'cada') total -= base/2;
-    else if(cfg.deduccionAplica === 'una' && cfg.deduccionQuincena === periodo.pagaEl) total -= base;
-  }
-  return total;
+  return 0;
 }
 
 function sumIngresosManuales(inicio, fin){
@@ -696,7 +674,6 @@ function viewDeudas(){
 
 function viewAjustes(){
   const dias = diasPagoOrdenados();
-  const cfg = data.config.ingresoBase;
   return `
     <h2 class="section-title">Fechas de Corte / Pago</h2>
     <div class="card">
@@ -710,43 +687,8 @@ function viewAjustes(){
     <div class="card">
       <label>Dinero Real que Tienes Hoy en Banco/Efectivo ($)</label>
       <input type="number" id="a-caja" value="${data.saldoAcumuladoAnterior||0}" placeholder="0">
-    </div>
-
-    <h2 class="section-title">Configuración de Sueldo e Ingresos</h2>
-    <div class="card">
-      <label>Sueldo Base Mensual</label>
-      <input type="number" id="a-sueldo" value="${cfg.sueldoMensual||''}" placeholder="0">
-
-      <h3 class="sub-title">Bono Completo</h3>
-      <label>Monto del Bono</label>
-      <input type="number" id="a-bono" value="${cfg.bonoMonto||''}" placeholder="0">
-      <label>Pagado en la Quincena del día:</label>
-      <div class="seg">
-        <button data-v="${dias[0]}" onclick="segSel(this,'bonoQuincena',${dias[0]})" class="${cfg.bonoQuincena===dias[0]?'sel':''}">${dias[0]}</button>
-        <button data-v="${dias[1]}" onclick="segSel(this,'bonoQuincena',${dias[1]})" class="${cfg.bonoQuincena===dias[1]?'sel':''}">${dias[1]}</button>
-      </div>
-
-      <h3 class="sub-title">Auxilio de Transporte</h3>
-      <label>Monto Mensual Legal</label>
-      <input type="number" id="a-aux" value="${cfg.auxTransporte||''}" placeholder="0">
-      <label>Distribución</label>
-      <div class="seg">
-        <button onclick="segSel(this,'auxAplica','cada')" class="${cfg.auxAplica==='cada'?'sel':''}">Mitad por quincena</button>
-        <button onclick="segSel(this,'auxAplica','una')" class="${cfg.auxAplica==='una'?'sel':''}">Completo en una</button>
-      </div>
-
-      <h3 class="sub-title">Descuentos de Ley</h3>
-      <label>Porcentaje o Valor de Descuento</label>
-      <div class="two-col">
-        <input type="number" id="a-deduccion" value="${cfg.deduccion||''}" placeholder="0" style="flex:2">
-        <select id="a-deduccion-tipo" style="flex:1">
-          <option value="porcentaje" ${cfg.deduccionTipo==='porcentaje'?'selected':''}>%</option>
-          <option value="monto" ${cfg.deduccionTipo==='monto'?'selected':''}>$</option>
-        </select>
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn primary" onclick="guardarAjustes()">Guardar Cambios</button>
+      <div class="modal-actions" style="margin-top:10px">
+        <button class="btn primary" onclick="guardarAjustes()">Guardar Caja</button>
       </div>
     </div>
 
@@ -758,32 +700,11 @@ function viewAjustes(){
   `;
 }
 
-window._ajustesTmp = null;
-function segSel(btn, campo, valor){
-  if(!window._ajustesTmp) window._ajustesTmp = {};
-  window._ajustesTmp[campo] = valor;
-  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('sel'));
-  btn.classList.add('sel');
-}
-
 function guardarAjustes(){
   const d1 = parseInt(document.getElementById('a-dia1').value, 10);
   const d2 = parseInt(document.getElementById('a-dia2').value, 10);
   if(d1 >= 1 && d1 <= 28 && d2 >= 1 && d2 <= 28 && d1 !== d2) data.config.diasPago = [d1, d2];
-
   data.saldoAcumuladoAnterior = parseFloat(document.getElementById('a-caja').value) || 0;
-
-  const cfg = data.config.ingresoBase;
-  cfg.sueldoMensual = parseFloat(document.getElementById('a-sueldo').value) || 0;
-  cfg.bonoMonto = parseFloat(document.getElementById('a-bono').value) || 0;
-  cfg.auxTransporte = parseFloat(document.getElementById('a-aux').value) || 0;
-  cfg.deduccion = parseFloat(document.getElementById('a-deduccion').value) || 0;
-  cfg.deduccionTipo = document.getElementById('a-deduccion-tipo').value;
-
-  const tmp = window._ajustesTmp || {};
-  if(tmp.bonoQuincena !== undefined) cfg.bonoQuincena = tmp.bonoQuincena;
-  if(tmp.auxAplica !== undefined) cfg.auxAplica = tmp.auxAplica;
-  window._ajustesTmp = null;
 
   saveData();
   render();
