@@ -5,133 +5,162 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Mi Libro de Cuentas</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
-
   :root {
-    --bg: #0B1626;
-    --panel: #132339;
-    --panel-2: #0E1C30;
-    --line: #24374F;
-    --ink: #E9EEF6;
-    --ink-soft: #8DA0BC;
-    --accent: #3E8BFF;
-    --accent-soft: rgba(62,139,255,0.14);
-    --ok: #3E8BFF;
-    --warn: #E8A33D;
-    --bad: #E5555B;
-    --radius: 8px;
+    --bg-dark: #12161F;
+    --panel-bg: rgba(26, 32, 44, 0.7);
+    --panel-bg-solid: #1A202C;
+    --glass-border: rgba(255, 255, 255, 0.06);
+    --glass-highlight: rgba(255, 255, 255, 0.08);
+    
+    --ink: #E2E8F0;
+    --ink-soft: #8A99AD;
+    
+    --accent: #4A82C5;
+    --ok: #48BB78;
+    --warn: #ED8936;
+    --bad: #E53E3E;
+    --radius: 14px;
   }
+
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: 'IBM Plex Sans', sans-serif; overflow-x: hidden; }
+  
+  html, body { 
+    margin: 0; padding: 0; 
+    background-color: var(--bg-dark);
+    color: var(--ink); 
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+    overflow-x: hidden; 
+    min-height: 100vh;
+  }
+
   #app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; position: relative; }
 
   .header {
-    background: linear-gradient(180deg, #0F1E33, #0B1626);
-    padding: 22px 20px 18px;
-    border-bottom: 1px solid var(--line);
-    position: relative;
+    background: rgba(18, 22, 31, 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 22px 20px 16px;
+    border-bottom: 1px solid var(--glass-border);
+    position: sticky; top: 0; z-index: 40;
   }
-  .header::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); opacity: 0.6; }
-  .title { font-weight: 700; font-size: 19px; margin: 0; letter-spacing: 0.2px; }
-  .sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 5px; }
+  .title { font-weight: 700; font-size: 20px; margin: 0; letter-spacing: -0.3px; color: var(--ink); }
+  .sub { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; font-weight: 400; }
 
-  main { flex: 1; padding: 18px 16px 90px; }
+  main { flex: 1; padding: 16px 16px 100px; }
 
   .card {
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: var(--radius); padding: 16px; margin-bottom: 14px;
+    background: var(--panel-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius); 
+    padding: 16px; 
+    margin-bottom: 14px;
   }
-  .hero-figure { text-align: center; padding: 6px 0 2px; }
-  .hero-label { font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.6px; }
-  .hero-amount { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 32px; letter-spacing: -0.5px; margin-top: 4px; }
+
+  .hero-figure { text-align: center; padding: 8px 0 4px; }
+  .hero-label { font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+  .hero-amount { font-weight: 700; font-size: 32px; letter-spacing: -0.8px; margin-top: 4px; }
   .hero-amount.ok { color: var(--ok); }
   .hero-amount.warn { color: var(--warn); }
   .hero-amount.bad { color: var(--bad); }
-  .hero-note { font-size: 12.5px; margin-top: 10px; padding: 9px 11px; border-radius: 6px; }
-  .hero-note.ok { background: var(--accent-soft); color: var(--ok); }
-  .hero-note.warn { background: rgba(232,163,61,0.12); color: var(--warn); }
-  .hero-note.bad { background: rgba(229,85,91,0.12); color: var(--bad); }
+  .hero-note { font-size: 12.5px; margin-top: 10px; padding: 10px 12px; border-radius: 8px; backdrop-filter: blur(8px); }
+  .hero-note.ok { background: rgba(72, 187, 120, 0.1); color: #68D391; border: 1px solid rgba(72, 187, 120, 0.15); }
+  .hero-note.warn { background: rgba(237, 137, 54, 0.1); color: var(--warn); border: 1px solid rgba(237, 137, 54, 0.15); }
+  .hero-note.bad { background: rgba(229, 62, 62, 0.1); color: var(--bad); border: 1px solid rgba(229, 62, 62, 0.15); }
 
-  .row { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  .row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--glass-border); font-size: 13.5px; }
   .row:last-child { border-bottom: none; }
   .row .label { color: var(--ink-soft); }
-  .row .val { font-family: 'IBM Plex Mono', monospace; font-weight: 500; }
-  .row .val.neg { color: var(--bad); }
+  .row .val { font-weight: 600; }
+  .row .val.neg { color: #FC8181; }
 
   .clickable-row { cursor: pointer; user-select: none; }
-  .clickable-row:hover { opacity: 0.9; }
+  .clickable-row:active { opacity: 0.7; }
 
   .details-box {
-    background: var(--panel-2);
-    border-radius: 6px;
+    background: rgba(18, 22, 31, 0.5);
+    border-radius: 10px;
     padding: 10px 12px;
     margin: 8px 0;
-    border: 1px solid var(--line);
+    border: 1px solid var(--glass-border);
     font-size: 12.5px;
   }
 
-  h2.section-title { font-size: 15.5px; font-weight: 600; margin: 4px 0 10px; color: var(--ink); }
-  h3.sub-title { font-size: 13px; font-weight: 600; margin: 14px 0 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.4px; }
+  h2.section-title { font-size: 15px; font-weight: 600; margin: 4px 0 10px; color: var(--ink); letter-spacing: -0.2px; }
+  h3.sub-title { font-size: 11.5px; font-weight: 600; margin: 14px 0 6px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.6px; }
 
-  .item { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 10px; }
+  .item { 
+    background: var(--panel-bg); 
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border); 
+    border-radius: var(--radius); 
+    padding: 14px 16px; 
+    margin-bottom: 10px; 
+  }
   .item-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-  .item-name { font-weight: 600; font-size: 14px; }
-  .item-meta { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
-  .item-amount { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 14.5px; white-space: nowrap; }
+  .item-name { font-weight: 600; font-size: 14.5px; }
+  .item-meta { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+  .item-amount { font-weight: 600; font-size: 14.5px; white-space: nowrap; }
   .item-amount.pos { color: var(--ok); }
-  .item-amount.neg { color: var(--bad); }
-  .del-btn { background: none; border: none; color: var(--ink-soft); font-size: 16px; cursor: pointer; padding: 2px 4px; line-height: 1; }
+  .item-amount.neg { color: #FC8181; }
+  .del-btn { background: none; border: none; color: var(--ink-soft); font-size: 15px; cursor: pointer; padding: 2px 4px; }
 
-  .progress-track { background: var(--line); border-radius: 99px; height: 6px; margin-top: 8px; overflow: hidden; }
-  .progress-fill { background: var(--accent); height: 100%; transition: width 0.3s ease; }
+  .progress-track { background: rgba(255, 255, 255, 0.05); border-radius: 99px; height: 6px; margin-top: 8px; overflow: hidden; }
+  .progress-fill { background: var(--accent); height: 100%; border-radius: 99px; transition: width 0.3s ease; }
+  .progress-fill.bad { background: var(--bad); }
 
   .tabbar {
     position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto;
-    display: flex; background: var(--panel-2); border-top: 1px solid var(--line);
-    padding-bottom: env(safe-area-inset-bottom, 0px); z-index: 30;
+    display: flex; background: rgba(18, 22, 31, 0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--glass-border);
+    padding-bottom: env(safe-area-inset-bottom, 6px); z-index: 30;
   }
   .tabbar button {
-    flex: 1; background: none; border: none; color: var(--ink-soft); font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 11px; padding: 11px 4px 9px; cursor: pointer;
+    flex: 1; background: none; border: none; color: var(--ink-soft); font-size: 11px;
+    padding: 12px 4px 8px; cursor: pointer; font-weight: 500; transition: color 0.2s;
   }
   .tabbar button.active { color: var(--accent); font-weight: 600; }
 
-  .empty { text-align: center; padding: 28px 10px; color: var(--ink-soft); font-size: 13.5px; }
+  .empty { text-align: center; padding: 32px 16px; color: var(--ink-soft); font-size: 13.5px; line-height: 1.5; }
 
   .fab {
-    position: fixed; right: calc(50% - 240px + 18px); bottom: calc(70px + env(safe-area-inset-bottom, 0px));
-    width: 52px; height: 52px; border-radius: 50%; background: var(--accent); color: #fff;
-    border: none; font-size: 26px; box-shadow: 0 4px 14px rgba(62,139,255,0.35); cursor: pointer;
+    position: fixed; right: calc(50% - 240px + 20px); bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    width: 50px; height: 50px; border-radius: 50%; background: var(--accent); color: #fff;
+    border: none; font-size: 24px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4); cursor: pointer;
     display: flex; align-items: center; justify-content: center; z-index: 20;
   }
-  @media (max-width: 520px) { .fab { right: 18px; } }
+  @media (max-width: 520px) { .fab { right: 20px; } }
 
   .modal-backdrop {
-    position: fixed; inset: 0; background: rgba(4,9,17,0.65); display: flex; align-items: flex-end;
-    justify-content: center; z-index: 50;
+    position: fixed; inset: 0; background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    display: flex; align-items: flex-end; justify-content: center; z-index: 50;
   }
   .modal {
-    background: var(--bg); width: 100%; max-width: 480px; border-radius: 14px 14px 0 0;
-    padding: 20px 18px 24px; max-height: 88vh; overflow-y: auto; border-top: 1px solid var(--line);
+    background: #1A202C;
+    width: 100%; max-width: 480px; border-radius: 20px 20px 0 0;
+    padding: 22px 18px 24px; max-height: 88vh; overflow-y: auto; border-top: 1px solid var(--glass-highlight);
     padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   }
-  .modal h3 { margin: 0 0 14px; font-size: 17px; }
-  label { display: block; font-size: 12px; color: var(--ink-soft); margin: 12px 0 5px; }
+  .modal h3 { margin: 0 0 14px; font-size: 17px; font-weight: 600; }
+  label { display: block; font-size: 12px; color: var(--ink-soft); margin: 12px 0 5px; font-weight: 500; }
   input[type=text], input[type=number], input[type=date], select {
-    width: 100%; padding: 10px 11px; border: 1px solid var(--line); border-radius: 6px;
-    font-size: 16px; font-family: 'IBM Plex Sans', sans-serif; background: var(--panel); color: var(--ink);
+    width: 100%; padding: 11px 12px; border: 1px solid var(--glass-border); border-radius: 10px;
+    font-size: 15px; background: rgba(255, 255, 255, 0.04); color: var(--ink); outline: none;
   }
+  input:focus, select:focus { border-color: var(--accent); }
   select { appearance: none; }
   .seg { display: flex; gap: 8px; margin-top: 5px; }
   .seg button {
-    flex: 1; padding: 9px 4px; border: 1px solid var(--line); background: var(--panel);
-    border-radius: 6px; font-size: 12.5px; cursor: pointer; color: var(--ink-soft);
+    flex: 1; padding: 9px 4px; border: 1px solid var(--glass-border); background: rgba(255, 255, 255, 0.04);
+    border-radius: 8px; font-size: 12.5px; cursor: pointer; color: var(--ink-soft); font-weight: 500;
   }
   .seg button.sel { background: var(--accent); color: #fff; border-color: var(--accent); }
   .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-  .btn { flex: 1; padding: 12px; border-radius: 6px; border: none; font-size: 14.5px; font-weight: 600; cursor: pointer; }
+  .btn { flex: 1; padding: 12px; border-radius: 10px; border: none; font-size: 14.5px; font-weight: 600; cursor: pointer; }
   .btn.primary { background: var(--accent); color: #fff; }
-  .btn.ghost { background: none; border: 1px solid var(--line); color: var(--ink-soft); }
+  .btn.ghost { background: rgba(255, 255, 255, 0.04); border: 1px solid var(--glass-border); color: var(--ink-soft); }
   .hint { font-size: 11.5px; color: var(--ink-soft); margin-top: 5px; }
   .loading { text-align: center; padding: 60px 20px; color: var(--ink-soft); }
   .two-col { display: flex; gap: 10px; }
@@ -155,10 +184,11 @@
 <div id="modal-root"></div>
 
 <script>
-const STORAGE_KEY = 'libro-cuentas-datos-v15';
+const STORAGE_KEY = 'libro-cuentas-datos-v21';
 let currentTab = 'resumen';
 let data = null;
-let showCompromisosDetails = false;
+let showDetailsQ5 = false;
+let showDetailsQ20 = false;
 const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
 function uid(p){ return p + Date.now().toString(36) + Math.floor(Math.random()*1000); }
@@ -191,8 +221,8 @@ function defaultData(){
         id: 'd_bdb',
         nombre: 'Banco de Bogotá (Libre Inv.)',
         tipo: 'revolvente',
-        saldoInicial: 9490381,
-        saldoActual: 9490381,
+        saldoInicial: 9516075,
+        saldoActual: 9516075,
         tasaInteresMensual: 2.085,
         cuotaValor: 510757,
         cuotasTotales: 24,
@@ -207,13 +237,13 @@ function defaultData(){
         id: 'd_colsub',
         nombre: 'Colsubsidio (Avances/Cupo)',
         tipo: 'revolvente',
-        saldoInicial: 1044209,
-        saldoActual: 1044209,
+        saldoInicial: 1047102,
+        saldoActual: 1047102,
         tasaInteresMensual: 2.16,
         cuotaValor: 84953,
         cuotasTotales: 24,
         cuotasPagadas: 0,
-        quincenaPago: 20, // <-- Ajustado a la quincena del 20
+        quincenaPago: 20,
         corteDia: 16,
         activo: true,
         fechaUltimaActualizacion: toISO(new Date()),
@@ -240,19 +270,49 @@ function defaultData(){
         id: 'd_addi',
         nombre: 'Addi (Crédito e51993d8)',
         tipo: 'cuota_fija',
-        saldoInicial: 230000,
-        saldoActual: 99419,
+        saldoInicial: 200516,
+        saldoActual: 139870,
         tasaInteresMensual: 0,
         cuotaValor: 69935,
-        cuotasTotales: 4,
-        cuotasPagadas: 2,
+        cuotasTotales: 2,
+        cuotasPagadas: 0,
         quincenaPago: 20,
         corteDia: 16,
         activo: true,
         fechaUltimaActualizacion: toISO(new Date()),
-        historialPagos: [
-          { fecha: '2026-07-17', pago: 130581, nota: 'Capital abonado acumulado' }
-        ]
+        historialPagos: []
+      },
+      {
+        id: 'd_watch',
+        nombre: 'Mercado Libre Apple Watch',
+        tipo: 'cuota_fija',
+        saldoInicial: 1656679,
+        saldoActual: 1656679,
+        tasaInteresMensual: 0,
+        cuotaValor: 138057,
+        cuotasTotales: 12,
+        cuotasPagadas: 0,
+        quincenaPago: 20,
+        corteDia: 20,
+        activo: true,
+        fechaUltimaActualizacion: toISO(new Date()),
+        historialPagos: []
+      },
+      {
+        id: 'd_moto',
+        nombre: 'Seguro moto',
+        tipo: 'cuota_fija',
+        saldoInicial: 780000,
+        saldoActual: 780000,
+        tasaInteresMensual: 0,
+        cuotaValor: 130000,
+        cuotasTotales: 6,
+        cuotasPagadas: 0,
+        quincenaPago: 20,
+        corteDia: 20,
+        activo: true,
+        fechaUltimaActualizacion: toISO(new Date()),
+        historialPagos: []
       }
     ]
   };
@@ -265,6 +325,8 @@ function migrar(d){
   if(d.deudas) {
     d.deudas.forEach(x => { 
       if(!x.tipo) x.tipo = 'cuota_fija'; 
+      if(x.cuotasTotales === undefined) x.cuotasTotales = null;
+      if(x.cuotasPagadas === undefined) x.cuotasPagadas = 0;
       if(!x.fechaUltimaActualizacion) x.fechaUltimaActualizacion = toISO(new Date());
     });
   }
@@ -332,19 +394,25 @@ function diasPagoOrdenados(){
   return [...data.config.diasPago].sort((a,b) => a-b);
 }
 
-function quincenaActual(hoy){
-  const dias = diasPagoOrdenados();
+function getPeriodoForDia(pagaDia, hoy){
   const hoyM = midnight(hoy);
   let candidatos = [];
   for(let off = -1; off <= 1; off++){
-    dias.forEach(d => candidatos.push(new Date(hoyM.getFullYear(), hoyM.getMonth() + off, d)));
+    candidatos.push(new Date(hoyM.getFullYear(), hoyM.getMonth() + off, pagaDia));
   }
   candidatos.sort((a,b) => a - b);
-  let fin = candidatos.find(c => c.getTime() >= hoyM.getTime());
-  let idx = candidatos.indexOf(fin);
-  let prevPago = candidatos[idx-1];
+  let fin = candidatos.find(c => c.getTime() >= hoyM.getTime()) || candidatos[0];
+  const dias = diasPagoOrdenados();
+  const otroDia = dias.find(d => d !== pagaDia) || 5;
+  let prevPago = new Date(fin);
+  if(pagaDia > otroDia){
+    prevPago.setDate(otroDia);
+  } else {
+    prevPago.setMonth(prevPago.getMonth() - 1);
+    prevPago.setDate(otroDia);
+  }
   const inicio = new Date(prevPago); inicio.setDate(inicio.getDate()+1);
-  return { pagaEl: fin.getDate(), inicio, fin, rango: rangoLabel(inicio, fin) };
+  return { pagaEl: pagaDia, inicio, fin, rango: rangoLabel(inicio, fin) };
 }
 
 function rangoLabel(inicio, fin){
@@ -422,10 +490,9 @@ function setTab(t){
 function render(){
   const root = document.getElementById('view-root');
   const hoy = new Date();
-  const q = quincenaActual(hoy);
-  document.getElementById('hdr-sub').textContent = `${hoy.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'})} · Quincena del ${q.pagaEl} (${q.rango})`;
+  document.getElementById('hdr-sub').textContent = `${hoy.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'})}`;
 
-  if(currentTab === 'resumen') root.innerHTML = viewResumen(q);
+  if(currentTab === 'resumen') root.innerHTML = viewResumen(hoy);
   else if(currentTab === 'movimientos') root.innerHTML = viewMovimientos();
   else if(currentTab === 'deudas') root.innerHTML = viewDeudas();
   else root.innerHTML = viewAjustes();
@@ -442,73 +509,113 @@ function addFab(icon, onclick){
   document.getElementById('app').appendChild(btn);
 }
 
-function toggleCompromisosDetails(){
-  showCompromisosDetails = !showCompromisosDetails;
+function toggleDetails(qNum){
+  if(qNum === 5) showDetailsQ5 = !showDetailsQ5;
+  if(qNum === 20) showDetailsQ20 = !showDetailsQ20;
   render();
 }
 
-function viewResumen(q){
-  const ingAutoQ = ingresoAutomatico(q);
-  const ingManualQ = sumIngresosManuales(q.inicio, q.fin);
-  const gasQ = sumGastos(q.inicio, q.fin, q);
-  const compromLista = getCompromisosDeudasDetalle(q);
-  const totalDescontadoQ = compromLista.reduce((a,b) => a + b.egresoReal, 0);
+function viewResumen(hoy){
+  const q5 = getPeriodoForDia(5, hoy);
+  const q20 = getPeriodoForDia(20, hoy);
 
-  const disponibleSueldoQ = ingAutoQ + ingManualQ - gasQ - totalDescontadoQ;
+  const ingQ5 = ingresoAutomatico(q5) + sumIngresosManuales(q5.inicio, q5.fin);
+  const gasQ5 = sumGastos(q5.inicio, q5.fin, q5);
+  const compQ5 = getCompromisosDeudasDetalle(q5);
+  const totalCompQ5 = compQ5.reduce((a,b) => a + b.egresoReal, 0);
+  const totalEgresosQ5 = gasQ5 + totalCompQ5;
+  const libreQ5 = ingQ5 - totalEgresosQ5;
+  const pctQ5 = ingQ5 > 0 ? Math.min(100, Math.round((totalEgresosQ5 / ingQ5) * 100)) : 0;
+
+  const ingQ20 = ingresoAutomatico(q20) + sumIngresosManuales(q20.inicio, q20.fin);
+  const gasQ20 = sumGastos(q20.inicio, q20.fin, q20);
+  const compQ20 = getCompromisosDeudasDetalle(q20);
+  const totalCompQ20 = compQ20.reduce((a,b) => a + b.egresoReal, 0);
+  const totalEgresosQ20 = gasQ20 + totalCompQ20;
+  const libreQ20 = ingQ20 - totalEgresosQ20;
+  const pctQ20 = ingQ20 > 0 ? Math.min(100, Math.round((totalEgresosQ20 / ingQ20) * 100)) : 0;
+
   const ahorroBase = data.saldoAcumuladoAnterior || 0;
-  const disponibleTotalReal = ahorroBase + disponibleSueldoQ;
-
-  let cls = 'ok', nota = 'Flujo de dinero real y saludable.';
-  if(disponibleTotalReal < 0){
-    cls = 'bad';
-    nota = `Atención: Iliquidez total. Te faltan ${fmt(Math.abs(disponibleTotalReal))} para cubrir tus pagos.`;
-  } else if(disponibleSueldoQ < 0){
-    cls = 'warn';
-    nota = `Gastaste ${fmt(Math.abs(disponibleSueldoQ))} por encima de esta quincena. Absorbido de tus ahorros.`;
-  }
-
+  const disponibleTotalReal = ahorroBase + libreQ5 + libreQ20;
   const deudaTotal = data.deudas.filter(d => d.activo).reduce((a,b) => a + Number(b.saldoActual), 0);
 
-  let detallesHtml = '';
-  if(showCompromisosDetails){
-    detallesHtml = `<div class="details-box">
-      <strong>Desglose Créditos Quincena (${q.pagaEl}):</strong><br>`;
-    compromLista.forEach(item => {
-      let est = item.pagado >= item.cuotaProgramada ? ` <span style="color:var(--ok)">(Pagado: ${fmt(item.pagado)})</span>` : '';
-      detallesHtml += `<div class="row" style="padding:4px 0;"><span class="label">• ${escapeHtml(item.nombre)}${est}</span><span class="val">${fmt(item.egresoReal)}</span></div>`;
+  let detailsQ5Html = '';
+  if(showDetailsQ5){
+    detailsQ5Html = `<div class="details-box"><strong>Desglose Créditos Quincena 5:</strong><br>`;
+    compQ5.forEach(item => {
+      let est = item.pagado >= item.cuotaProgramada ? ` <span style="color:var(--ok)">(Pagado)</span>` : '';
+      detailsQ5Html += `<div class="row" style="padding:3px 0;"><span class="label">• ${escapeHtml(item.nombre)}${est}</span><span class="val">${fmt(item.egresoReal)}</span></div>`;
     });
-    detallesHtml += `</div>`;
+    detailsQ5Html += `</div>`;
+  }
+
+  let detailsQ20Html = '';
+  if(showDetailsQ20){
+    detailsQ20Html = `<div class="details-box"><strong>Desglose Créditos Quincena 20:</strong><br>`;
+    compQ20.forEach(item => {
+      let est = item.pagado >= item.cuotaProgramada ? ` <span style="color:var(--ok)">(Pagado)</span>` : '';
+      detailsQ20Html += `<div class="row" style="padding:3px 0;"><span class="label">• ${escapeHtml(item.nombre)}${est}</span><span class="val">${fmt(item.egresoReal)}</span></div>`;
+    });
+    detailsQ20Html += `</div>`;
+  }
+
+  let alertaAjusteHtml = '';
+  if(libreQ20 < 0){
+    alertaAjusteHtml = `
+      <div class="card" style="border-color:rgba(237,137,54,0.3)">
+        <h2 class="section-title" style="margin-top:0;color:var(--warn)">Reserva Requerida para Día 20</h2>
+        <p class="hint" style="font-size:12.5px;color:var(--ink)">
+          Te has pasado por <strong style="color:#FC8181">${fmt(Math.abs(libreQ20))}</strong> en la quincena del 20. Se sugiere apartar este valor de tu quincena del 5 o de tus fondos de reserva.
+        </p>
+      </div>`;
   }
 
   return `
     <div class="card hero-figure">
-      <div class="hero-label">Dinero Real Disponible (Caja + Quincena)</div>
-      <div class="hero-amount ${cls}">${fmt(disponibleTotalReal)}</div>
-      <div class="hero-note ${cls}">${nota}</div>
+      <div class="hero-label">Disponible Total Real</div>
+      <div class="hero-amount ok">${fmt(disponibleTotalReal)}</div>
+      <div class="hero-note ok">Consolidado general de caja y dos quincenas</div>
     </div>
 
+    ${alertaAjusteHtml}
+
     <div class="card">
-      <h2 class="section-title" style="margin-top:0">Balance Quincena del ${q.pagaEl}</h2>
-      <div class="row"><span class="label">Ingreso recibido quincena</span><span class="val">${fmt(ingAutoQ)}</span></div>
-      ${ingManualQ > 0 ? `<div class="row"><span class="label">Ingresos extras</span><span class="val">${fmt(ingManualQ)}</span></div>` : ''}
-      <div class="row clickable-row" onclick="toggleCompromisosDetails()">
-        <span class="label">Créditos / Compromisos aplicados ▾</span>
-        <span class="val neg">- ${fmt(totalDescontadoQ)}</span>
+      <h2 class="section-title" style="margin-top:0">Quincena del Día 5 (${q5.rango})</h2>
+      <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ5)}</span></div>
+      <div class="row clickable-row" onclick="toggleDetails(5)">
+        <span class="label">Cuotas asignadas ▾</span>
+        <span class="val neg">- ${fmt(totalCompQ5)}</span>
       </div>
-      ${detallesHtml}
-      <div class="row"><span class="label">Gastos / Servicios de quincena</span><span class="val neg">- ${fmt(gasQ)}</span></div>
-      <div class="row"><span class="label" style="font-weight:600;color:var(--ink)">Resultado Neto Quincena</span><span class="val" style="font-weight:700;color:${disponibleSueldoQ<0?'var(--bad)':'var(--ink)'}">${fmt(disponibleSueldoQ)}</span></div>
+      ${detailsQ5Html}
+      <div class="row"><span class="label">Gastos diarios y servicios</span><span class="val neg">- ${fmt(gasQ5)}</span></div>
+      <div class="row"><span class="label" style="font-weight:600;color:var(--ink)">Margen libre en quincena</span><span class="val" style="font-weight:700;color:${libreQ5<0?'var(--bad)':'var(--ok)'}">${fmt(libreQ5)}</span></div>
+      
+      <div class="hint" style="margin-top:8px;display:flex;justify-content:space-between">
+        <span>Comprometido <strong>${pctQ5}%</strong></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill ${pctQ5>100?'bad':''}" style="width:${pctQ5}%"></div></div>
     </div>
 
     <div class="card">
-      <h2 class="section-title" style="margin-top:0">Consolidado de Fondos Reales</h2>
-      <div class="row"><span class="label">Fondo Acumulado Anterior</span><span class="val" style="color:var(--ok)">+ ${fmt(ahorroBase)}</span></div>
-      <div class="row"><span class="label" style="font-weight:700;color:var(--ink)">Total Disponible en Cuenta/Bolsillo</span><span class="val" style="font-weight:700;color:var(--accent)">${fmt(disponibleTotalReal)}</span></div>
+      <h2 class="section-title" style="margin-top:0">Quincena del Día 20 (${q20.rango})</h2>
+      <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ20)}</span></div>
+      <div class="row clickable-row" onclick="toggleDetails(20)">
+        <span class="label">Cuotas asignadas ▾</span>
+        <span class="val neg">- ${fmt(totalCompQ20)}</span>
+      </div>
+      ${detailsQ20Html}
+      <div class="row"><span class="label">Gastos diarios y servicios</span><span class="val neg">- ${fmt(gasQ20)}</span></div>
+      <div class="row"><span class="label" style="font-weight:600;color:var(--ink)">Margen libre en quincena</span><span class="val" style="font-weight:700;color:${libreQ20<0?'var(--bad)':'var(--ok)'}">${fmt(libreQ20)}</span></div>
+      
+      <div class="hint" style="margin-top:8px;display:flex;justify-content:space-between">
+        <span>Comprometido <strong>${pctQ20}%</strong></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill ${pctQ20>100?'bad':''}" style="width:${pctQ20}%"></div></div>
     </div>
 
     <div class="card">
-      <div class="row"><span class="label">Deuda global pendiente</span><span class="val neg">${fmt(deudaTotal)}</span></div>
-      <div class="row"><span class="label">Créditos/Tarjetas activas</span><span class="val">${data.deudas.filter(d=>d.activo).length}</span></div>
+      <div class="row"><span class="label">Fondo Acumulado (Caja)</span><span class="val" style="color:var(--ok)">+ ${fmt(ahorroBase)}</span></div>
+      <div class="row"><span class="label">Deuda global acumulada</span><span class="val neg">${fmt(deudaTotal)}</span></div>
     </div>
   `;
 }
@@ -520,14 +627,14 @@ function viewMovimientos(){
   ].sort((a,b) => b.fecha.localeCompare(a.fecha));
 
   if(todos.length === 0){
-    return `<div class="empty">No hay gastos o ingresos adicionales.<br>Tus ingresos fijos y plan Claro están automáticos.<br>Toca "+" para registrar un nuevo movimiento.</div>`;
+    return `<div class="empty">No hay gastos o ingresos adicionales.<br>Tus gastos automáticos como Claro están en la quincena.<br>Toca "+" para registrar un nuevo movimiento.</div>`;
   }
   return `<h2 class="section-title">Movimientos y Gastos</h2>` + todos.map(m => `
     <div class="item">
       <div class="item-top">
         <div>
           <div class="item-name">${escapeHtml(m.nota || (m.tipo==='ingreso'?'Ingreso':'Gasto'))}</div>
-          <div class="item-meta">${m.fecha} · ${m.tipo==='gasto' ? escapeHtml(m.categoria||'General') : 'Ingreso extra'} ${m.quincenaPago? '· Quincena '+m.quincenaPago : ''}</div>
+          <div class="item-meta">${m.fecha} · ${m.tipo==='gasto' ? escapeHtml(m.categoria||'General') : 'Ingreso extra'} ${m.quincenaPago? '· Fijo Quincena '+m.quincenaPago : ''}</div>
         </div>
         <div style="text-align:right">
           <div class="item-amount ${m.tipo==='ingreso'?'pos':'neg'}">${m.tipo==='ingreso'?'+':'-'} ${fmt(m.monto)}</div>
@@ -554,6 +661,13 @@ function viewDeudas(){
     const tasaDiaria = (Number(d.tasaInteresMensual) / 100) / 30;
     const interesDiario = Math.round(d.saldoActual * tasaDiaria);
 
+    let cuotasDetalle = '';
+    if(d.cuotasTotales && d.cuotasTotales > 0){
+      const pagadas = d.cuotasPagadas || 0;
+      const restantes = Math.max(0, d.cuotasTotales - pagadas);
+      cuotasDetalle = `<div class="row"><span class="label">Cuotas restantes</span><span class="val">${restantes} de ${d.cuotasTotales} (${fmt(d.cuotaValor)}/mes)</span></div>`;
+    }
+
     return `
     <div class="item">
       <div class="item-top">
@@ -561,12 +675,16 @@ function viewDeudas(){
           <div class="item-name">${escapeHtml(d.nombre)}</div>
           <div class="item-meta">${tipoLabel} · Paga el ${d.quincenaPago==='ambas'?'5 y 20':d.quincenaPago}</div>
         </div>
-        <button class="del-btn" onclick="eliminarDeuda('${d.id}')">✕</button>
+        <div>
+          <button class="del-btn" style="font-size:12px;margin-right:8px;color:var(--accent)" onclick="openDeudaForm('${d.id}')">Editar</button>
+          <button class="del-btn" onclick="eliminarDeuda('${d.id}')">✕</button>
+        </div>
       </div>
       <div class="row"><span class="label">Saldo pendiente actual</span><span class="val neg">${fmt(d.saldoActual)}</span></div>
-      ${d.tasaInteresMensual > 0 ? `<div class="row"><span class="label">Interés diario acumulado (+/día)</span><span class="val neg">+ ${fmt(interesDiario)}/día</span></div>` : ''}
+      ${d.tasaInteresMensual > 0 ? `<div class="row"><span class="label">Interés diario acumulado</span><span class="val neg">+ ${fmt(interesDiario)}/día</span></div>` : ''}
       ${d.tipo !== 'tarjeta' ? `<div class="row"><span class="label">Cuota mensual programada</span><span class="val">${fmt(d.cuotaValor)}</span></div>` : ''}
-      <div class="hint">${fmt(totalPagado)} abonados a capital de ${fmt(baseInicial)} (${pct}% amortizado)</div>
+      ${cuotasDetalle}
+      <div class="hint">${fmt(totalPagado)} abonados de ${fmt(baseInicial)} (${pct}% amortizado)</div>
       <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
       <div class="modal-actions" style="margin-top:12px">
         ${d.tipo === 'tarjeta' ? `<button class="btn ghost" onclick="agregarCompra('${d.id}')">Cargar Compra</button>` : ''}
@@ -586,7 +704,6 @@ function viewAjustes(){
         <div><label>Pago 1 (Día)</label><input type="number" id="a-dia1" value="${dias[0]}" min="1" max="28"></div>
         <div><label>Pago 2 (Día)</label><input type="number" id="a-dia2" value="${dias[1]}" min="1" max="28"></div>
       </div>
-      <div class="hint">Las quincenas se dividen automáticamente entre estas fechas.</div>
     </div>
 
     <h2 class="section-title">Saldo Base Acumulado Inicial</h2>
@@ -618,7 +735,7 @@ function viewAjustes(){
         <button onclick="segSel(this,'auxAplica','una')" class="${cfg.auxAplica==='una'?'sel':''}">Completo en una</button>
       </div>
 
-      <h3 class="sub-title">Descuentos de Ley (Salud / Pensión)</h3>
+      <h3 class="sub-title">Descuentos de Ley</h3>
       <label>Porcentaje o Valor de Descuento</label>
       <div class="two-col">
         <input type="number" id="a-deduccion" value="${cfg.deduccion||''}" placeholder="0" style="flex:2">
@@ -682,8 +799,9 @@ function borrarTodo(){
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-/* Movimientos */
+/* Movimientos con Recurrencia */
 function openMovForm(){
+  const dias = diasPagoOrdenados();
   document.getElementById('modal-root').innerHTML = `
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
       <div class="modal">
@@ -694,14 +812,27 @@ function openMovForm(){
         </div>
         <label>Monto ($)</label>
         <input type="number" id="mov-monto" placeholder="0">
-        <label>Fecha</label>
-        <input type="date" id="mov-fecha" value="${toISO(new Date())}">
+        
+        <div id="mov-fijo-wrap">
+          <label>Frecuencia / Recurrencia</label>
+          <div class="seg" id="mov-fijo-seg">
+            <button class="sel" data-v="fecha" onclick="setRecurrenciaTipo('fecha')">Ocasional</button>
+            <button data-v="${dias[0]}" onclick="setRecurrenciaTipo(${dias[0]})">Fijo Q.${dias[0]}</button>
+            <button data-v="${dias[1]}" onclick="setRecurrenciaTipo(${dias[1]})">Fijo Q.${dias[1]}</button>
+          </div>
+        </div>
+
+        <div id="mov-fecha-wrap">
+          <label>Fecha de Registro</label>
+          <input type="date" id="mov-fecha" value="${toISO(new Date())}">
+        </div>
+
         <div id="mov-categoria-wrap">
           <label>Categoría</label>
-          <input type="text" id="mov-categoria" placeholder="Ej: Servicios, Mercado, Gustos">
+          <input type="text" id="mov-categoria" placeholder="Ej: Servicios, Mercado, Suscripción">
         </div>
-        <label>Descripción / Nota</label>
-        <input type="text" id="mov-nota" placeholder="Ej: Pago de recibos, comida...">
+        <label>Descripción / Nombre</label>
+        <input type="text" id="mov-nota" placeholder="Ej: Plan Claro, Netflix, Gimnasio...">
         <div class="modal-actions">
           <button class="btn ghost" onclick="closeModal()">Cancelar</button>
           <button class="btn primary" onclick="guardarMov()">Guardar</button>
@@ -709,25 +840,34 @@ function openMovForm(){
       </div>
     </div>`;
   window._movTipo = 'gasto';
+  window._movRecurrencia = 'fecha';
 }
 
 function setMovTipo(t){
   window._movTipo = t;
   document.querySelectorAll('#mov-tipo-seg button').forEach(b => b.classList.toggle('sel', b.dataset.v === t));
   document.getElementById('mov-categoria-wrap').style.display = t === 'gasto' ? 'block' : 'none';
+  document.getElementById('mov-fijo-wrap').style.display = t === 'gasto' ? 'block' : 'none';
+}
+
+function setRecurrenciaTipo(r){
+  window._movRecurrencia = r;
+  document.querySelectorAll('#mov-fijo-seg button').forEach(b => b.classList.toggle('sel', String(b.dataset.v) === String(r)));
+  document.getElementById('mov-fecha-wrap').style.display = r === 'fecha' ? 'block' : 'none';
 }
 
 function guardarMov(){
   const monto = parseFloat(document.getElementById('mov-monto').value);
-  const fecha = document.getElementById('mov-fecha').value;
+  const fecha = document.getElementById('mov-fecha').value || toISO(new Date());
   const nota = document.getElementById('mov-nota').value;
-  if(!monto || monto <= 0 || !fecha){ alert('Ingresa un monto y una fecha válidos.'); return; }
+  if(!monto || monto <= 0){ alert('Ingresa un monto válido.'); return; }
 
   if(window._movTipo === 'ingreso') {
     data.ingresos.push({ id: uid('i'), monto, fecha, nota });
   } else {
     const categoria = document.getElementById('mov-categoria').value || 'General';
-    data.gastos.push({ id: uid('g'), monto, fecha, nota, categoria });
+    const qPago = window._movRecurrencia !== 'fecha' ? parseInt(window._movRecurrencia, 10) : null;
+    data.gastos.push({ id: uid('g'), monto, fecha, nota, categoria, quincenaPago: qPago });
   }
   saveData(); closeModal(); render();
 }
@@ -738,51 +878,63 @@ function eliminarMov(tipo, id){
   saveData(); render();
 }
 
-/* Deudas */
-function openDeudaForm(){
+/* Deudas Formulario y Edición */
+function openDeudaForm(editId = null){
   const dias = diasPagoOrdenados();
+  let d = editId ? data.deudas.find(x => x.id === editId) : null;
+
+  const nombreVal = d ? d.nombre : '';
+  const tipoVal = d ? d.tipo : 'cuota_fija';
+  const saldoVal = d ? d.saldoActual : '';
+  const cuotasTotalesVal = d ? (d.cuotasTotales || '') : '';
+  const interesVal = d ? d.tasaInteresMensual : '';
+  const qVal = d ? d.quincenaPago : dias[0];
+
   document.getElementById('modal-root').innerHTML = `
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
       <div class="modal">
-        <h3>Nuevo Crédito o Tarjeta</h3>
-        <label>Nombre de la Entidad / Tarjeta</label>
-        <input type="text" id="d-nombre" placeholder="Ej: Banco de Bogotá, RappiCard">
+        <h3>${d ? 'Editar' : 'Nuevo'} Crédito o Compra</h3>
+        <label>Nombre de la Entidad / Compra</label>
+        <input type="text" id="d-nombre" value="${escapeHtml(nombreVal)}" placeholder="Ej: Apple Watch, Seguro Moto">
         <label>Tipo de Crédito</label>
         <div class="seg" id="d-tipo-seg">
-          <button class="sel" data-v="cuota_fija" onclick="setDeudaTipo('cuota_fija')">Cuota Fija</button>
-          <button data-v="revolvente" onclick="setDeudaTipo('revolvente')">Interés Variable</button>
-          <button data-v="tarjeta" onclick="setDeudaTipo('tarjeta')">Tarjeta Crédito</button>
+          <button class="${tipoVal==='cuota_fija'?'sel':''}" data-v="cuota_fija" onclick="setDeudaTipo('cuota_fija')">Cuota Fija</button>
+          <button class="${tipoVal==='revolvente'?'sel':''}" data-v="revolvente" onclick="setDeudaTipo('revolvente')">Interés Variable</button>
+          <button class="${tipoVal==='tarjeta'?'sel':''}" data-v="tarjeta" onclick="setDeudaTipo('tarjeta')">Tarjeta Crédito</button>
         </div>
-        <label>Saldo de Deuda Actual</label>
-        <input type="number" id="d-saldo" placeholder="0">
-        <div id="d-cuota-wrap">
-          <label>Valor Cuota Mensual</label>
-          <input type="number" id="d-cuota" placeholder="0">
+        <label>Saldo Pendiente ($)</label>
+        <input type="number" id="d-saldo" value="${saldoVal}" placeholder="0">
+        
+        <div id="d-cuotas-totales-wrap" style="${tipoVal==='cuota_fija'?'block':'none'}">
+          <label>Número de Cuotas Totales</label>
+          <input type="number" id="d-cuotas-totales" value="${cuotasTotalesVal}" placeholder="Ej: 12, 6, 24">
         </div>
-        <div id="d-interes-wrap" style="display:none">
+
+        <div id="d-interes-wrap" style="${tipoVal==='revolvente'?'block':'none'}">
           <label>Interés Mensual (% MV)</label>
-          <input type="number" step="0.01" id="d-interes" placeholder="Ej: 2.1">
+          <input type="number" step="0.01" id="d-interes" value="${interesVal}" placeholder="Ej: 2.1">
         </div>
+
         <label>Quincena de Pago Habitual</label>
         <div class="seg" id="d-quincena-seg">
-          <button class="sel" data-v="${dias[0]}" onclick="setDeudaQuincena(${dias[0]})">Día ${dias[0]}</button>
-          <button data-v="${dias[1]}" onclick="setDeudaQuincena(${dias[1]})">Día ${dias[1]}</button>
+          <button class="${qVal===dias[0]?'sel':''}" data-v="${dias[0]}" onclick="setDeudaQuincena(${dias[0]})">Día ${dias[0]}</button>
+          <button class="${qVal===dias[1]?'sel':''}" data-v="${dias[1]}" onclick="setDeudaQuincena(${dias[1]})">Día ${dias[1]}</button>
         </div>
         <div class="modal-actions">
           <button class="btn ghost" onclick="closeModal()">Cancelar</button>
-          <button class="btn primary" onclick="guardarDeuda()">Guardar Crédito</button>
+          <button class="btn primary" onclick="guardarDeuda('${editId||''}')">Guardar</button>
         </div>
       </div>
     </div>`;
-  window._deudaTipo = 'cuota_fija';
-  window._deudaQuincena = dias[0];
+  window._deudaTipo = tipoVal;
+  window._deudaQuincena = qVal;
 }
 
 function setDeudaTipo(t){
   window._deudaTipo = t;
   document.querySelectorAll('#d-tipo-seg button').forEach(b => b.classList.toggle('sel', b.dataset.v === t));
   document.getElementById('d-interes-wrap').style.display = t === 'revolvente' ? 'block' : 'none';
-  document.getElementById('d-cuota-wrap').style.display = t === 'tarjeta' ? 'none' : 'block';
+  document.getElementById('d-cuotas-totales-wrap').style.display = t === 'cuota_fija' ? 'block' : 'none';
 }
 
 function setDeudaQuincena(q){
@@ -790,22 +942,34 @@ function setDeudaQuincena(q){
   document.querySelectorAll('#d-quincena-seg button').forEach(b => b.classList.toggle('sel', String(b.dataset.v) === String(q)));
 }
 
-function guardarDeuda(){
+function guardarDeuda(editId){
   const nombre = document.getElementById('d-nombre').value.trim();
   const saldo = parseFloat(document.getElementById('d-saldo').value);
   const tipo = window._deudaTipo;
-  const cuota = tipo === 'tarjeta' ? 0 : parseFloat(document.getElementById('d-cuota').value);
+  const cuotasTotales = parseInt(document.getElementById('d-cuotas-totales').value, 10) || null;
   const interes = (tipo === 'revolvente') ? (parseFloat(document.getElementById('d-interes').value)||0) : 0;
 
-  if(!nombre || isNaN(saldo) || (tipo !== 'tarjeta' && (!cuota || cuota <= 0))){
-    alert('Ingresa nombre, saldo y cuota válidos.'); return;
+  if(!nombre || isNaN(saldo) || (tipo === 'cuota_fija' && (!cuotasTotales || cuotasTotales <= 0))){
+    alert('Ingresa nombre, saldo y número de cuotas válidos.'); return;
   }
 
-  data.deudas.push({
-    id: uid('d'), nombre, tipo, saldoInicial: saldo, saldoActual: saldo,
-    tasaInteresMensual: interes, cuotaValor: cuota, cuotasTotales: null, cuotasPagadas: 0,
-    quincenaPago: window._deudaQuincena, activo: true, fechaUltimaActualizacion: toISO(new Date()), historialPagos: []
-  });
+  const cuota = tipo === 'cuota_fija' ? Math.round(saldo / cuotasTotales) : 0;
+
+  if(editId){
+    let d = data.deudas.find(x => x.id === editId);
+    if(d){
+      d.nombre = nombre; d.tipo = tipo; d.saldoActual = saldo;
+      d.cuotaValor = cuota; d.cuotasTotales = cuotasTotales;
+      d.tasaInteresMensual = interes; d.quincenaPago = window._deudaQuincena;
+    }
+  } else {
+    data.deudas.push({
+      id: uid('d'), nombre, tipo, saldoInicial: saldo, saldoActual: saldo,
+      tasaInteresMensual: interes, cuotaValor: cuota, cuotasTotales: cuotasTotales, cuotasPagadas: 0,
+      quincenaPago: window._deudaQuincena, activo: true, fechaUltimaActualizacion: toISO(new Date()), historialPagos: []
+    });
+  }
+
   saveData(); closeModal(); render();
 }
 
