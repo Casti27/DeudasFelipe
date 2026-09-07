@@ -184,7 +184,7 @@
 <div id="modal-root"></div>
 
 <script>
-const APP_STORAGE_KEY = 'mi_libro_cuentas_v1_0';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_v2_0';
 let currentTab = 'resumen';
 let data = null;
 let showDetailsQ1 = false;
@@ -380,6 +380,7 @@ function getQuincenasOrdenadas(hoy){
   const hoyM = midnight(hoy);
   const diaMes = hoyM.getDate();
 
+  // Del 6 al 20 del mes la quincena activa es la del día 20. Del 21 en adelante o del 1 al 5 es la del día 5.
   let qActualPagaEl = (diaMes >= 6 && diaMes <= 20) ? 20 : 5;
 
   function calcPeriodo(pagaDia, offsetMes){
@@ -396,8 +397,8 @@ function getQuincenasOrdenadas(hoy){
 
   if(qActualPagaEl === 20){
     return {
-      q1: calcPeriodo(20, 0),       // Quincena activa del 20
-      q2: calcPeriodo(5, 1)         // Siguiente quincena del 5
+      q1: calcPeriodo(20, 0),       // Quincena Activa Actual (6–20 sep)
+      q2: calcPeriodo(5, 1)         // Siguiente Quincena (21 sep – 5 oct)
     };
   } else {
     let off1 = diaMes >= 21 ? 1 : 0;
@@ -501,6 +502,7 @@ function toggleDetails(qIndex){
 function viewResumen(hoy){
   const { q1, q2 } = getQuincenasOrdenadas(hoy);
 
+  // q1 siempre es la quincena activa en curso
   const ingQ1 = ingresoAutomatico(q1) + sumIngresosManuales(q1.inicio, q1.fin);
   const gasQ1 = sumGastos(q1.inicio, q1.fin, q1);
   const compQ1 = getCompromisosDeudasDetalle(q1);
@@ -509,6 +511,7 @@ function viewResumen(hoy){
   const libreQ1 = ingQ1 - totalEgresosQ1;
   const pctQ1 = ingQ1 > 0 ? Math.min(100, Math.round((totalEgresosQ1 / ingQ1) * 100)) : 0;
 
+  // q2 siempre es la quincena posterior
   const ingQ2 = ingresoAutomatico(q2) + sumIngresosManuales(q2.inicio, q2.fin);
   const gasQ2 = sumGastos(q2.inicio, q2.fin, q2);
   const compQ2 = getCompromisosDeudasDetalle(q2);
@@ -561,23 +564,7 @@ function viewResumen(hoy){
 
     ${alertaAjusteHtml}
 
-    <div class="card">
-      <h2 class="section-title" style="margin-top:0">Quincena del Día ${q2.pagaEl} (${q2.rango})</h2>
-      <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ2)}</span></div>
-      <div class="row clickable-row" onclick="toggleDetails(2)">
-        <span class="label">Cuotas asignadas ▾</span>
-        <span class="val neg">- ${fmt(totalCompQ2)}</span>
-      </div>
-      ${detailsQ2Html}
-      <div class="row"><span class="label">Gastos diarios y servicios</span><span class="val neg">- ${fmt(gasQ2)}</span></div>
-      <div class="row"><span class="label" style="font-weight:600;color:var(--ink)">Margen libre en quincena</span><span class="val" style="font-weight:700;color:${libreQ2<0?'var(--bad)':'var(--ok)'}">${fmt(libreQ2)}</span></div>
-      
-      <div class="hint" style="margin-top:8px;display:flex;justify-content:space-between">
-        <span>Comprometido <strong>${pctQ2}%</strong></span>
-      </div>
-      <div class="progress-track"><div class="progress-fill ${pctQ2>100?'bad':''}" style="width:${pctQ2}%"></div></div>
-    </div>
-
+    <!-- PRIMERA CARD: QUINCENA ACTIVA EN CURSO (DÍA 20) -->
     <div class="card">
       <h2 class="section-title" style="margin-top:0">Quincena del Día ${q1.pagaEl} (${q1.rango})</h2>
       <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ1)}</span></div>
@@ -593,6 +580,24 @@ function viewResumen(hoy){
         <span>Comprometido <strong>${pctQ1}%</strong></span>
       </div>
       <div class="progress-track"><div class="progress-fill ${pctQ1>100?'bad':''}" style="width:${pctQ1}%"></div></div>
+    </div>
+
+    <!-- SEGUNDA CARD: PRÓXIMA QUINCENA (DÍA 5) -->
+    <div class="card">
+      <h2 class="section-title" style="margin-top:0">Quincena del Día ${q2.pagaEl} (${q2.rango})</h2>
+      <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ2)}</span></div>
+      <div class="row clickable-row" onclick="toggleDetails(2)">
+        <span class="label">Cuotas asignadas ▾</span>
+        <span class="val neg">- ${fmt(totalCompQ2)}</span>
+      </div>
+      ${detailsQ2Html}
+      <div class="row"><span class="label">Gastos diarios y servicios</span><span class="val neg">- ${fmt(gasQ2)}</span></div>
+      <div class="row"><span class="label" style="font-weight:600;color:var(--ink)">Margen libre en quincena</span><span class="val" style="font-weight:700;color:${libreQ2<0?'var(--bad)':'var(--ok)'}">${fmt(libreQ2)}</span></div>
+      
+      <div class="hint" style="margin-top:8px;display:flex;justify-content:space-between">
+        <span>Comprometido <strong>${pctQ2}%</strong></span>
+      </div>
+      <div class="progress-track"><div class="progress-fill ${pctQ2>100?'bad':''}" style="width:${pctQ2}%"></div></div>
     </div>
 
     <div class="card">
