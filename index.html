@@ -184,7 +184,7 @@
 <div id="modal-root"></div>
 
 <script>
-const MAIN_KEY = 'libro-cuentas-app-data';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_v1_0';
 let currentTab = 'resumen';
 let data = null;
 let showDetailsQ1 = false;
@@ -193,7 +193,7 @@ const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov'
 
 function uid(p){ return p + Date.now().toString(36) + Math.floor(Math.random()*1000); }
 
-function defaultData(){
+function initialBaseData(){
   const hoyISO = toISO(new Date());
   return {
     saldoAcumuladoAnterior: 0,
@@ -203,9 +203,9 @@ function defaultData(){
     },
     ingresos: [],
     gastos: [
-      { id: 'g_mantenimiento', monto: 126000, fecha: hoyISO, nota: 'Mantenimiento Ns 200 (10.500km)', categoria: 'Mantenimientos' },
-      { id: 'g_claro', monto: 39000, fecha: hoyISO, nota: 'Plan Claro Movil', categoria: 'Servicios', quincenaPago: 20 },
-      { id: 'g_rifa', monto: 20000, fecha: hoyISO, nota: 'Rifa aleja (028-242)', categoria: 'Rifa' },
+      { id: 'g_mantenimiento', monto: 126000, fecha: '2026-09-05', nota: 'Mantenimiento Ns 200 (10.500km)', categoria: 'Mantenimientos' },
+      { id: 'g_claro', monto: 39000, fecha: '2026-09-04', nota: 'Plan Claro Movil', categoria: 'Servicios', quincenaPago: 20 },
+      { id: 'g_rifa', monto: 20000, fecha: '2026-09-04', nota: 'Rifa aleja (028-242)', categoria: 'Rifa' },
       { id: 'g_compra_tarjeta', monto: 54998, fecha: hoyISO, nota: 'Compra Tarjeta de Crédito', categoria: 'Compras' }
     ],
     deudas: [
@@ -223,7 +223,7 @@ function defaultData(){
         corteDia: 10,
         activo: true,
         fechaUltimaActualizacion: hoyISO,
-        historialPagos: [{ fecha: hoyISO, pago: 1000000, saldoResultante: 8533840 }]
+        historialPagos: [{ fecha: '2026-09-05', pago: 1000000, saldoResultante: 8533840 }]
       },
       {
         id: 'd_colsub',
@@ -310,42 +310,28 @@ function defaultData(){
   };
 }
 
-// Búsqueda exhaustiva en todas las versiones antiguas de LocalStorage
-function buscarDatosEnLocal(){
-  const claves = [
-    MAIN_KEY,
-    'libro-cuentas-datos-v25',
-    'libro-cuentas-datos-v24',
-    'libro-cuentas-datos-v23',
-    'libro-cuentas-datos-v22',
-    'libro-cuentas-datos-v21',
-    'libro-cuentas-datos-v20'
-  ];
-  for(let k of claves){
-    try {
-      const item = localStorage.getItem(k);
-      if(item) {
-        let parsed = JSON.parse(item);
-        if(parsed && (parsed.deudas || parsed.gastos)) return parsed;
-      }
-    } catch(e){}
+function loadData(){
+  try {
+    const local = localStorage.getItem(APP_STORAGE_KEY);
+    if(local){
+      data = JSON.parse(local);
+    } else {
+      data = initialBaseData();
+    }
+  } catch(e){
+    data = initialBaseData();
   }
-  return null;
+  calcularInteresDiarioAcumulado();
+  saveData();
+  render();
 }
 
-function migrar(d){
-  if(d.saldoAcumuladoAnterior === undefined) d.saldoAcumuladoAnterior = 0;
-  if(!d.config) d.config = { diasPago: [5,20], moneda: 'COP' };
-  if(!d.config.diasPago) d.config.diasPago = [5,20];
-  if(d.deudas) {
-    d.deudas.forEach(x => { 
-      if(!x.tipo) x.tipo = 'cuota_fija'; 
-      if(x.cuotasTotales === undefined) x.cuotasTotales = null;
-      if(x.cuotasPagadas === undefined) x.cuotasPagadas = 0;
-      if(!x.fechaUltimaActualizacion) x.fechaUltimaActualizacion = toISO(new Date());
-    });
+function saveData(){
+  try {
+    localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(data));
+  } catch(e) {
+    console.error('Error al guardar datos', e);
   }
-  return d;
 }
 
 function calcularInteresDiarioAcumulado(){
@@ -371,26 +357,6 @@ function calcularInteresDiarioAcumulado(){
   });
 
   if(modificado) saveData();
-}
-
-function loadData(){
-  let cargado = buscarDatosEnLocal();
-  if(cargado) {
-    data = migrar(cargado);
-  } else {
-    data = defaultData();
-  }
-  calcularInteresDiarioAcumulado();
-  saveData();
-  render();
-}
-
-function saveData(){
-  try {
-    localStorage.setItem(MAIN_KEY, JSON.stringify(data));
-  } catch(e) {
-    console.error('Error al guardar datos localmente', e);
-  }
 }
 
 function fmt(n){
@@ -581,7 +547,7 @@ function viewResumen(hoy){
       <div class="card" style="border-color:rgba(237,137,54,0.3)">
         <h2 class="section-title" style="margin-top:0;color:var(--warn)">Reserva Requerida para Día ${q1.pagaEl}</h2>
         <p class="hint" style="font-size:12.5px;color:var(--ink)">
-          Te has pasado por <strong style="color:#FC8181">${fmt(Math.abs(libreQ1))}</strong> en esta quincena. Se sugiere apartar este valor de tus fondos de reserva.
+          Te has pasado por <strong style="color:#FC8181">${fmt(Math.abs(libreQ1))}</strong> en la quincena del ${q1.pagaEl}. Se sugiere apartar este valor de tu quincena del ${q2.pagaEl} o de tus fondos de reserva.
         </p>
       </div>`;
   }
@@ -750,7 +716,7 @@ function guardarAjustes(){
 
 function borrarTodo(){
   if(confirm('¿Restablecer y borrar todos los datos locales?')){
-    data = defaultData();
+    data = initialBaseData();
     saveData();
     render();
   }
