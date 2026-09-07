@@ -184,7 +184,7 @@
 <div id="modal-root"></div>
 
 <script>
-const STORAGE_KEY = 'libro-cuentas-datos-v23';
+const CURRENT_STORAGE_KEY = 'libro-cuentas-datos-v24';
 let currentTab = 'resumen';
 let data = null;
 let showDetailsQ1 = false;
@@ -202,7 +202,7 @@ function defaultData(){
     },
     ingresos: [],
     gastos: [
-      { id: 'g_claro', monto: 39000, fecha: toISO(new Date()), nota: 'Plan Claro Movil', categoria: 'Servicios', quincenaPago: 20 }
+      { id: 'g_claro', monto: 39000, fecha: '2026-09-04', nota: 'Plan Claro Movil', categoria: 'Servicios', quincenaPago: 20 }
     ],
     deudas: [
       {
@@ -210,16 +210,16 @@ function defaultData(){
         nombre: 'Banco de Bogotá (Libre Inv.)',
         tipo: 'revolvente',
         saldoInicial: 9516075,
-        saldoActual: 9516075,
+        saldoActual: 8533840,
         tasaInteresMensual: 2.085,
         cuotaValor: 510757,
         cuotasTotales: 24,
-        cuotasPagadas: 0,
+        cuotasPagadas: 1,
         quincenaPago: 5,
         corteDia: 10,
         activo: true,
         fechaUltimaActualizacion: toISO(new Date()),
-        historialPagos: []
+        historialPagos: [{ fecha: '2026-09-05', pago: 1000000, saldoResultante: 8533840 }]
       },
       {
         id: 'd_colsub',
@@ -306,8 +306,24 @@ function defaultData(){
   };
 }
 
+function migrarAnteriores(){
+  // Revisa todas las claves previas en el teléfono para no perder ningún pago ni gasto
+  const keys = ['libro-cuentas-datos-v23', 'libro-cuentas-datos-v22', 'libro-cuentas-datos-v21', 'libro-cuentas-datos-v20'];
+  for(let k of keys){
+    try {
+      const raw = localStorage.getItem(k);
+      if(raw) {
+        let parsed = JSON.parse(raw);
+        if(parsed && parsed.deudas) return parsed;
+      }
+    } catch(e){}
+  }
+  return null;
+}
+
 function migrar(d){
   if(d.saldoAcumuladoAnterior === undefined) d.saldoAcumuladoAnterior = 0;
+  if(!d.config) d.config = { diasPago: [5,20], moneda: 'COP' };
   if(!d.config.diasPago) d.config.diasPago = [5,20];
   if(d.deudas) {
     d.deudas.forEach(x => { 
@@ -347,18 +363,24 @@ function calcularInteresDiarioAcumulado(){
 
 function loadData(){
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    data = raw ? migrar(JSON.parse(raw)) : defaultData();
+    const raw = localStorage.getItem(CURRENT_STORAGE_KEY);
+    if(raw) {
+      data = migrar(JSON.parse(raw));
+    } else {
+      let recuperado = migrarAnteriores();
+      data = recuperado ? migrar(recuperado) : defaultData();
+    }
   } catch(e) {
     data = defaultData();
   }
   calcularInteresDiarioAcumulado();
+  saveData();
   render();
 }
 
 function saveData(){
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(CURRENT_STORAGE_KEY, JSON.stringify(data));
   } catch(e) {
     console.error('No se pudo guardar localmente', e);
   }
@@ -381,13 +403,11 @@ function diasPagoOrdenados(){
   return [...data.config.diasPago].sort((a,b) => a-b);
 }
 
-// Genera las 2 quincenas ordenadas según la fecha actual real
 function getQuincenasOrdenadas(hoy){
   const hoyM = midnight(hoy);
   const diaMes = hoyM.getDate();
 
   let qActualPagaEl = (diaMes >= 6 && diaMes <= 20) ? 20 : 5;
-  let qSiguientePagaEl = qActualPagaEl === 20 ? 5 : 20;
 
   function calcPeriodo(pagaDia, offsetMes){
     let fin = new Date(hoyM.getFullYear(), hoyM.getMonth() + offsetMes, pagaDia);
@@ -508,7 +528,6 @@ function toggleDetails(qIndex){
 function viewResumen(hoy){
   const { q1, q2 } = getQuincenasOrdenadas(hoy);
 
-  // Datos Quincena Actual (Arriba)
   const ingQ1 = ingresoAutomatico(q1) + sumIngresosManuales(q1.inicio, q1.fin);
   const gasQ1 = sumGastos(q1.inicio, q1.fin, q1);
   const compQ1 = getCompromisosDeudasDetalle(q1);
@@ -517,7 +536,6 @@ function viewResumen(hoy){
   const libreQ1 = ingQ1 - totalEgresosQ1;
   const pctQ1 = ingQ1 > 0 ? Math.min(100, Math.round((totalEgresosQ1 / ingQ1) * 100)) : 0;
 
-  // Datos Quincena Siguiente (Abajo)
   const ingQ2 = ingresoAutomatico(q2) + sumIngresosManuales(q2.inicio, q2.fin);
   const gasQ2 = sumGastos(q2.inicio, q2.fin, q2);
   const compQ2 = getCompromisosDeudasDetalle(q2);
@@ -570,7 +588,6 @@ function viewResumen(hoy){
 
     ${alertaAjusteHtml}
 
-    <!-- QUINCENA ACTIVA (ARRIBA) -->
     <div class="card">
       <h2 class="section-title" style="margin-top:0">Quincena Actual Día ${q1.pagaEl} (${q1.rango})</h2>
       <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ1)}</span></div>
@@ -588,7 +605,6 @@ function viewResumen(hoy){
       <div class="progress-track"><div class="progress-fill ${pctQ1>100?'bad':''}" style="width:${pctQ1}%"></div></div>
     </div>
 
-    <!-- PRÓXIMA QUINCENA (ABAJO) -->
     <div class="card">
       <h2 class="section-title" style="margin-top:0">Próxima Quincena Día ${q2.pagaEl} (${q2.rango})</h2>
       <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ2)}</span></div>
