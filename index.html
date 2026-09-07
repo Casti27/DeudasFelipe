@@ -184,11 +184,11 @@
 <div id="modal-root"></div>
 
 <script>
-const STORAGE_KEY = 'libro-cuentas-datos-v22';
+const STORAGE_KEY = 'libro-cuentas-datos-v23';
 let currentTab = 'resumen';
 let data = null;
-let showDetailsQ5 = false;
-let showDetailsQ20 = false;
+let showDetailsQ1 = false;
+let showDetailsQ2 = false;
 const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
 function uid(p){ return p + Date.now().toString(36) + Math.floor(Math.random()*1000); }
@@ -381,25 +381,38 @@ function diasPagoOrdenados(){
   return [...data.config.diasPago].sort((a,b) => a-b);
 }
 
-function getPeriodoForDia(pagaDia, hoy){
+// Genera las 2 quincenas ordenadas según la fecha actual real
+function getQuincenasOrdenadas(hoy){
   const hoyM = midnight(hoy);
-  let candidatos = [];
-  for(let off = -1; off <= 1; off++){
-    candidatos.push(new Date(hoyM.getFullYear(), hoyM.getMonth() + off, pagaDia));
+  const diaMes = hoyM.getDate();
+
+  let qActualPagaEl = (diaMes >= 6 && diaMes <= 20) ? 20 : 5;
+  let qSiguientePagaEl = qActualPagaEl === 20 ? 5 : 20;
+
+  function calcPeriodo(pagaDia, offsetMes){
+    let fin = new Date(hoyM.getFullYear(), hoyM.getMonth() + offsetMes, pagaDia);
+    let inicio = new Date(fin);
+    if(pagaDia === 20){
+      inicio.setDate(6);
+    } else {
+      inicio.setMonth(inicio.getMonth() - 1);
+      inicio.setDate(21);
+    }
+    return { pagaEl: pagaDia, inicio, fin, rango: rangoLabel(inicio, fin) };
   }
-  candidatos.sort((a,b) => a - b);
-  let fin = candidatos.find(c => c.getTime() >= hoyM.getTime()) || candidatos[0];
-  const dias = diasPagoOrdenados();
-  const otroDia = dias.find(d => d !== pagaDia) || 5;
-  let prevPago = new Date(fin);
-  if(pagaDia > otroDia){
-    prevPago.setDate(otroDia);
+
+  if(qActualPagaEl === 20){
+    return {
+      q1: calcPeriodo(20, 0),       // 6 sep - 20 sep
+      q2: calcPeriodo(5, 1)         // 21 sep - 5 oct
+    };
   } else {
-    prevPago.setMonth(prevPago.getMonth() - 1);
-    prevPago.setDate(otroDia);
+    let off1 = diaMes >= 21 ? 1 : 0;
+    return {
+      q1: calcPeriodo(5, off1),
+      q2: calcPeriodo(20, off1)
+    };
   }
-  const inicio = new Date(prevPago); inicio.setDate(inicio.getDate()+1);
-  return { pagaEl: pagaDia, inicio, fin, rango: rangoLabel(inicio, fin) };
 }
 
 function rangoLabel(inicio, fin){
@@ -409,12 +422,11 @@ function rangoLabel(inicio, fin){
 
 function enRango(iso, inicio, fin){ const d = parseDate(iso); return d >= inicio && d <= fin; }
 
-// Sueldo neto exacto asignado a cada quincena
 function ingresoAutomatico(periodo){
   if(periodo.pagaEl === 5){
-    return 1390548; // Valor neto quincena del 5
+    return 1390548;
   } else if(periodo.pagaEl === 20){
-    return 1090548; // Valor neto quincena del 20
+    return 1090548;
   }
   return 0;
 }
@@ -487,63 +499,64 @@ function addFab(icon, onclick){
   document.getElementById('app').appendChild(btn);
 }
 
-function toggleDetails(qNum){
-  if(qNum === 5) showDetailsQ5 = !showDetailsQ5;
-  if(qNum === 20) showDetailsQ20 = !showDetailsQ20;
+function toggleDetails(qIndex){
+  if(qIndex === 1) showDetailsQ1 = !showDetailsQ1;
+  if(qIndex === 2) showDetailsQ2 = !showDetailsQ2;
   render();
 }
 
 function viewResumen(hoy){
-  const q5 = getPeriodoForDia(5, hoy);
-  const q20 = getPeriodoForDia(20, hoy);
+  const { q1, q2 } = getQuincenasOrdenadas(hoy);
 
-  const ingQ5 = ingresoAutomatico(q5) + sumIngresosManuales(q5.inicio, q5.fin);
-  const gasQ5 = sumGastos(q5.inicio, q5.fin, q5);
-  const compQ5 = getCompromisosDeudasDetalle(q5);
-  const totalCompQ5 = compQ5.reduce((a,b) => a + b.egresoReal, 0);
-  const totalEgresosQ5 = gasQ5 + totalCompQ5;
-  const libreQ5 = ingQ5 - totalEgresosQ5;
-  const pctQ5 = ingQ5 > 0 ? Math.min(100, Math.round((totalEgresosQ5 / ingQ5) * 100)) : 0;
+  // Datos Quincena Actual (Arriba)
+  const ingQ1 = ingresoAutomatico(q1) + sumIngresosManuales(q1.inicio, q1.fin);
+  const gasQ1 = sumGastos(q1.inicio, q1.fin, q1);
+  const compQ1 = getCompromisosDeudasDetalle(q1);
+  const totalCompQ1 = compQ1.reduce((a,b) => a + b.egresoReal, 0);
+  const totalEgresosQ1 = gasQ1 + totalCompQ1;
+  const libreQ1 = ingQ1 - totalEgresosQ1;
+  const pctQ1 = ingQ1 > 0 ? Math.min(100, Math.round((totalEgresosQ1 / ingQ1) * 100)) : 0;
 
-  const ingQ20 = ingresoAutomatico(q20) + sumIngresosManuales(q20.inicio, q20.fin);
-  const gasQ20 = sumGastos(q20.inicio, q20.fin, q20);
-  const compQ20 = getCompromisosDeudasDetalle(q20);
-  const totalCompQ20 = compQ20.reduce((a,b) => a + b.egresoReal, 0);
-  const totalEgresosQ20 = gasQ20 + totalCompQ20;
-  const libreQ20 = ingQ20 - totalEgresosQ20;
-  const pctQ20 = ingQ20 > 0 ? Math.min(100, Math.round((totalEgresosQ20 / ingQ20) * 100)) : 0;
+  // Datos Quincena Siguiente (Abajo)
+  const ingQ2 = ingresoAutomatico(q2) + sumIngresosManuales(q2.inicio, q2.fin);
+  const gasQ2 = sumGastos(q2.inicio, q2.fin, q2);
+  const compQ2 = getCompromisosDeudasDetalle(q2);
+  const totalCompQ2 = compQ2.reduce((a,b) => a + b.egresoReal, 0);
+  const totalEgresosQ2 = gasQ2 + totalCompQ2;
+  const libreQ2 = ingQ2 - totalEgresosQ2;
+  const pctQ2 = ingQ2 > 0 ? Math.min(100, Math.round((totalEgresosQ2 / ingQ2) * 100)) : 0;
 
   const ahorroBase = data.saldoAcumuladoAnterior || 0;
-  const disponibleTotalReal = ahorroBase + libreQ5 + libreQ20;
+  const disponibleTotalReal = ahorroBase + libreQ1 + libreQ2;
   const deudaTotal = data.deudas.filter(d => d.activo).reduce((a,b) => a + Number(b.saldoActual), 0);
 
-  let detailsQ5Html = '';
-  if(showDetailsQ5){
-    detailsQ5Html = `<div class="details-box"><strong>Desglose Créditos Quincena 5:</strong><br>`;
-    compQ5.forEach(item => {
+  let detailsQ1Html = '';
+  if(showDetailsQ1){
+    detailsQ1Html = `<div class="details-box"><strong>Desglose Créditos Quincena Día ${q1.pagaEl}:</strong><br>`;
+    compQ1.forEach(item => {
       let est = item.pagado >= item.cuotaProgramada ? ` <span style="color:var(--ok)">(Pagado)</span>` : '';
-      detailsQ5Html += `<div class="row" style="padding:3px 0;"><span class="label">• ${escapeHtml(item.nombre)}${est}</span><span class="val">${fmt(item.egresoReal)}</span></div>`;
+      detailsQ1Html += `<div class="row" style="padding:3px 0;"><span class="label">• ${escapeHtml(item.nombre)}${est}</span><span class="val">${fmt(item.egresoReal)}</span></div>`;
     });
-    detailsQ5Html += `</div>`;
+    detailsQ1Html += `</div>`;
   }
 
-  let detailsQ20Html = '';
-  if(showDetailsQ20){
-    detailsQ20Html = `<div class="details-box"><strong>Desglose Créditos Quincena 20:</strong><br>`;
-    compQ20.forEach(item => {
+  let detailsQ2Html = '';
+  if(showDetailsQ2){
+    detailsQ2Html = `<div class="details-box"><strong>Desglose Créditos Quincena Día ${q2.pagaEl}:</strong><br>`;
+    compQ2.forEach(item => {
       let est = item.pagado >= item.cuotaProgramada ? ` <span style="color:var(--ok)">(Pagado)</span>` : '';
-      detailsQ20Html += `<div class="row" style="padding:3px 0;"><span class="label">• ${escapeHtml(item.nombre)}${est}</span><span class="val">${fmt(item.egresoReal)}</span></div>`;
+      detailsQ2Html += `<div class="row" style="padding:3px 0;"><span class="label">• ${escapeHtml(item.nombre)}${est}</span><span class="val">${fmt(item.egresoReal)}</span></div>`;
     });
-    detailsQ20Html += `</div>`;
+    detailsQ2Html += `</div>`;
   }
 
   let alertaAjusteHtml = '';
-  if(libreQ20 < 0){
+  if(libreQ1 < 0){
     alertaAjusteHtml = `
       <div class="card" style="border-color:rgba(237,137,54,0.3)">
-        <h2 class="section-title" style="margin-top:0;color:var(--warn)">Reserva Requerida para Día 20</h2>
+        <h2 class="section-title" style="margin-top:0;color:var(--warn)">Reserva Requerida para Quincena del ${q1.pagaEl}</h2>
         <p class="hint" style="font-size:12.5px;color:var(--ink)">
-          Te has pasado por <strong style="color:#FC8181">${fmt(Math.abs(libreQ20))}</strong> en la quincena del 20. Se sugiere apartar este valor de tu quincena del 5 o de tus fondos de reserva.
+          Te has pasado por <strong style="color:#FC8181">${fmt(Math.abs(libreQ1))}</strong> en esta quincena. Se sugiere apartar este valor de tus fondos de reserva o ahorro base.
         </p>
       </div>`;
   }
@@ -557,38 +570,40 @@ function viewResumen(hoy){
 
     ${alertaAjusteHtml}
 
+    <!-- QUINCENA ACTIVA (ARRIBA) -->
     <div class="card">
-      <h2 class="section-title" style="margin-top:0">Quincena del Día 5 (${q5.rango})</h2>
-      <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ5)}</span></div>
-      <div class="row clickable-row" onclick="toggleDetails(5)">
+      <h2 class="section-title" style="margin-top:0">Quincena Actual Día ${q1.pagaEl} (${q1.rango})</h2>
+      <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ1)}</span></div>
+      <div class="row clickable-row" onclick="toggleDetails(1)">
         <span class="label">Cuotas asignadas ▾</span>
-        <span class="val neg">- ${fmt(totalCompQ5)}</span>
+        <span class="val neg">- ${fmt(totalCompQ1)}</span>
       </div>
-      ${detailsQ5Html}
-      <div class="row"><span class="label">Gastos diarios y servicios</span><span class="val neg">- ${fmt(gasQ5)}</span></div>
-      <div class="row"><span class="label" style="font-weight:600;color:var(--ink)">Margen libre en quincena</span><span class="val" style="font-weight:700;color:${libreQ5<0?'var(--bad)':'var(--ok)'}">${fmt(libreQ5)}</span></div>
+      ${detailsQ1Html}
+      <div class="row"><span class="label">Gastos diarios y servicios</span><span class="val neg">- ${fmt(gasQ1)}</span></div>
+      <div class="row"><span class="label" style="font-weight:600;color:var(--ink)">Margen libre en quincena</span><span class="val" style="font-weight:700;color:${libreQ1<0?'var(--bad)':'var(--ok)'}">${fmt(libreQ1)}</span></div>
       
       <div class="hint" style="margin-top:8px;display:flex;justify-content:space-between">
-        <span>Comprometido <strong>${pctQ5}%</strong></span>
+        <span>Comprometido <strong>${pctQ1}%</strong></span>
       </div>
-      <div class="progress-track"><div class="progress-fill ${pctQ5>100?'bad':''}" style="width:${pctQ5}%"></div></div>
+      <div class="progress-track"><div class="progress-fill ${pctQ1>100?'bad':''}" style="width:${pctQ1}%"></div></div>
     </div>
 
+    <!-- PRÓXIMA QUINCENA (ABAJO) -->
     <div class="card">
-      <h2 class="section-title" style="margin-top:0">Quincena del Día 20 (${q20.rango})</h2>
-      <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ20)}</span></div>
-      <div class="row clickable-row" onclick="toggleDetails(20)">
+      <h2 class="section-title" style="margin-top:0">Próxima Quincena Día ${q2.pagaEl} (${q2.rango})</h2>
+      <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ2)}</span></div>
+      <div class="row clickable-row" onclick="toggleDetails(2)">
         <span class="label">Cuotas asignadas ▾</span>
-        <span class="val neg">- ${fmt(totalCompQ20)}</span>
+        <span class="val neg">- ${fmt(totalCompQ2)}</span>
       </div>
-      ${detailsQ20Html}
-      <div class="row"><span class="label">Gastos diarios y servicios</span><span class="val neg">- ${fmt(gasQ20)}</span></div>
-      <div class="row"><span class="label" style="font-weight:600;color:var(--ink)">Margen libre en quincena</span><span class="val" style="font-weight:700;color:${libreQ20<0?'var(--bad)':'var(--ok)'}">${fmt(libreQ20)}</span></div>
+      ${detailsQ2Html}
+      <div class="row"><span class="label">Gastos diarios y servicios</span><span class="val neg">- ${fmt(gasQ2)}</span></div>
+      <div class="row"><span class="label" style="font-weight:600;color:var(--ink)">Margen libre en quincena</span><span class="val" style="font-weight:700;color:${libreQ2<0?'var(--bad)':'var(--ok)'}">${fmt(libreQ2)}</span></div>
       
       <div class="hint" style="margin-top:8px;display:flex;justify-content:space-between">
-        <span>Comprometido <strong>${pctQ20}%</strong></span>
+        <span>Comprometido <strong>${pctQ2}%</strong></span>
       </div>
-      <div class="progress-track"><div class="progress-fill ${pctQ20>100?'bad':''}" style="width:${pctQ20}%"></div></div>
+      <div class="progress-track"><div class="progress-fill ${pctQ2>100?'bad':''}" style="width:${pctQ2}%"></div></div>
     </div>
 
     <div class="card">
