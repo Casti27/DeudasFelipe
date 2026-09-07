@@ -184,11 +184,12 @@
 <div id="modal-root"></div>
 
 <script>
-const APP_STORAGE_KEY = 'mi_libro_cuentas_v2_0';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_v3_0';
 let currentTab = 'resumen';
 let data = null;
 let showDetailsQ1 = false;
 let showDetailsQ2 = false;
+let openDeudaHistorialId = null;
 const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
 function uid(p){ return p + Date.now().toString(36) + Math.floor(Math.random()*1000); }
@@ -205,8 +206,7 @@ function initialBaseData(){
     gastos: [
       { id: 'g_mantenimiento', monto: 126000, fecha: '2026-09-05', nota: 'Mantenimiento Ns 200 (10.500km)', categoria: 'Mantenimientos' },
       { id: 'g_claro', monto: 39000, fecha: '2026-09-04', nota: 'Plan Claro Movil', categoria: 'Servicios', quincenaPago: 20 },
-      { id: 'g_rifa', monto: 20000, fecha: '2026-09-04', nota: 'Rifa aleja (028-242)', categoria: 'Rifa' },
-      { id: 'g_compra_tarjeta', monto: 54998, fecha: hoyISO, nota: 'Compra Tarjeta de Crédito', categoria: 'Compras' }
+      { id: 'g_rifa', monto: 20000, fecha: '2026-09-04', nota: 'Rifa aleja (028-242)', categoria: 'Rifa' }
     ],
     deudas: [
       {
@@ -249,14 +249,14 @@ function initialBaseData(){
         saldoActual: 831916,
         cupoTotal: 1000000,
         tasaInteresMensual: 0,
-        cuotaValor: 776918,
+        cuotaValor: 831916,
         cuotasTotales: null,
         cuotasPagadas: 0,
         quincenaPago: 20,
         corteDia: 20,
         activo: true,
         fechaUltimaActualizacion: hoyISO,
-        historialPagos: [{ fecha: hoyISO, compra: true, monto: 54998 }]
+        historialPagos: [{ fecha: hoyISO, compra: true, monto: 54998, nota: 'Gasolina' }]
       },
       {
         id: 'd_addi',
@@ -380,7 +380,6 @@ function getQuincenasOrdenadas(hoy){
   const hoyM = midnight(hoy);
   const diaMes = hoyM.getDate();
 
-  // Del 6 al 20 del mes la quincena activa es la del día 20. Del 21 en adelante o del 1 al 5 es la del día 5.
   let qActualPagaEl = (diaMes >= 6 && diaMes <= 20) ? 20 : 5;
 
   function calcPeriodo(pagaDia, offsetMes){
@@ -443,7 +442,7 @@ function getCompromisosDeudasDetalle(periodo){
   data.deudas.filter(d => d.activo).forEach(d => {
     let cuotaProg = 0;
     if(d.tipo === 'tarjeta' && d.quincenaPago === periodo.pagaEl){
-      cuotaProg = Number(d.cuotaValor || d.saldoActual);
+      cuotaProg = Number(d.saldoActual);
     } else if(d.quincenaPago === 'ambas'){
       cuotaProg = Number(d.cuotaValor) / 2;
     } else if(d.quincenaPago === periodo.pagaEl){
@@ -499,10 +498,14 @@ function toggleDetails(qIndex){
   render();
 }
 
+function toggleDeudaHistorial(id){
+  openDeudaHistorialId = (openDeudaHistorialId === id) ? null : id;
+  render();
+}
+
 function viewResumen(hoy){
   const { q1, q2 } = getQuincenasOrdenadas(hoy);
 
-  // q1 siempre es la quincena activa en curso
   const ingQ1 = ingresoAutomatico(q1) + sumIngresosManuales(q1.inicio, q1.fin);
   const gasQ1 = sumGastos(q1.inicio, q1.fin, q1);
   const compQ1 = getCompromisosDeudasDetalle(q1);
@@ -511,7 +514,6 @@ function viewResumen(hoy){
   const libreQ1 = ingQ1 - totalEgresosQ1;
   const pctQ1 = ingQ1 > 0 ? Math.min(100, Math.round((totalEgresosQ1 / ingQ1) * 100)) : 0;
 
-  // q2 siempre es la quincena posterior
   const ingQ2 = ingresoAutomatico(q2) + sumIngresosManuales(q2.inicio, q2.fin);
   const gasQ2 = sumGastos(q2.inicio, q2.fin, q2);
   const compQ2 = getCompromisosDeudasDetalle(q2);
@@ -564,7 +566,6 @@ function viewResumen(hoy){
 
     ${alertaAjusteHtml}
 
-    <!-- PRIMERA CARD: QUINCENA ACTIVA EN CURSO (DÍA 20) -->
     <div class="card">
       <h2 class="section-title" style="margin-top:0">Quincena del Día ${q1.pagaEl} (${q1.rango})</h2>
       <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ1)}</span></div>
@@ -582,7 +583,6 @@ function viewResumen(hoy){
       <div class="progress-track"><div class="progress-fill ${pctQ1>100?'bad':''}" style="width:${pctQ1}%"></div></div>
     </div>
 
-    <!-- SEGUNDA CARD: PRÓXIMA QUINCENA (DÍA 5) -->
     <div class="card">
       <h2 class="section-title" style="margin-top:0">Quincena del Día ${q2.pagaEl} (${q2.rango})</h2>
       <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ2)}</span></div>
@@ -655,6 +655,23 @@ function viewDeudas(){
       cuotasDetalle = `<div class="row"><span class="label">Cuotas restantes</span><span class="val">${restantes} de ${d.cuotasTotales} (${fmt(d.cuotaValor)}/mes)</span></div>`;
     }
 
+    let historialBoxHtml = '';
+    if(openDeudaHistorialId === d.id){
+      historialBoxHtml = `<div class="details-box" style="margin-top:10px;"><strong>Historial de Compras y Pagos:</strong><br>`;
+      if(!d.historialPagos || d.historialPagos.length === 0){
+        historialBoxHtml += `<div class="hint">No hay registros aún.</div>`;
+      } else {
+        d.historialPagos.forEach(h => {
+          if(h.compra){
+            historialBoxHtml += `<div class="row" style="padding:3px 0;"><span class="label">• ${h.fecha} Compra ${escapeHtml(h.nota||'')}</span><span class="val neg">+ ${fmt(h.monto)}</span></div>`;
+          } else if(h.pago){
+            historialBoxHtml += `<div class="row" style="padding:3px 0;"><span class="label">• ${h.fecha} Abonado</span><span class="val" style="color:var(--ok)">- ${fmt(h.pago)}</span></div>`;
+          }
+        });
+      }
+      historialBoxHtml += `</div>`;
+    }
+
     return `
     <div class="item">
       <div class="item-top">
@@ -671,7 +688,13 @@ function viewDeudas(){
       ${d.tasaInteresMensual > 0 ? `<div class="row"><span class="label">Interés diario acumulado</span><span class="val neg">+ ${fmt(interesDiario)}/día</span></div>` : ''}
       ${d.tipo !== 'tarjeta' ? `<div class="row"><span class="label">Cuota mensual programada</span><span class="val">${fmt(d.cuotaValor)}</span></div>` : ''}
       ${cuotasDetalle}
-      <div class="hint">${fmt(totalPagado)} abonados de ${fmt(baseInicial)} (${pct}% amortizado)</div>
+      
+      <div class="row clickable-row" onclick="toggleDeudaHistorial('${d.id}')" style="margin-top:4px;">
+        <span class="label" style="color:var(--accent);font-size:12px;">Ver Compras/Historial ▾</span>
+        <span class="hint" style="margin:0">${fmt(totalPagado)} abonados de ${fmt(baseInicial)}</span>
+      </div>
+      ${historialBoxHtml}
+
       <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
       <div class="modal-actions" style="margin-top:12px">
         ${d.tipo === 'tarjeta' ? `<button class="btn ghost" onclick="agregarCompra('${d.id}')">Cargar Compra</button>` : ''}
@@ -949,12 +972,12 @@ function agregarCompra(id){
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
       <div class="modal">
         <h3>Nueva Compra · ${escapeHtml(d.nombre)}</h3>
-        <label>Monto de la Compra</label>
+        <label>Monto de la Compra ($)</label>
         <input type="number" id="compra-monto" placeholder="0">
         <label>Fecha</label>
         <input type="date" id="compra-fecha" value="${toISO(new Date())}">
         <label>Detalle / Establecimiento</label>
-        <input type="text" id="compra-nota" placeholder="Ej: Supermercado, Gasolina...">
+        <input type="text" id="compra-nota" placeholder="Ej: Gasolina, Supermercado...">
         <div class="modal-actions">
           <button class="btn ghost" onclick="closeModal()">Cancelar</button>
           <button class="btn primary" onclick="confirmarCompra('${id}')">Cargar a Tarjeta</button>
@@ -967,10 +990,11 @@ function confirmarCompra(id){
   const d = data.deudas.find(x => x.id === id);
   const monto = parseFloat(document.getElementById('compra-monto').value);
   const fecha = document.getElementById('compra-fecha').value;
+  const nota = document.getElementById('compra-nota').value;
   if(!monto || monto <= 0){ alert('Ingresa un monto válido.'); return; }
   d.saldoActual += monto;
   d.fechaUltimaActualizacion = toISO(new Date());
-  d.historialPagos.push({ fecha, compra: true, monto });
+  d.historialPagos.push({ fecha, compra: true, monto, nota });
   saveData(); closeModal(); render();
 }
 
