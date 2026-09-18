@@ -183,7 +183,7 @@
 <div id="modal-root"></div>
 
 <script>
-const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_final';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_0';
 let currentTab = 'resumen';
 let data = null;
 let showDetailsQ1 = false;
@@ -226,18 +226,18 @@ function initialBaseData(){
       },
       {
         id: 'd_colsub',
-        nombre: 'Colsubsidio (Avances/Cupo)',
+        nombre: 'Colsubsidio (Cupo de crédito)',
         tipo: 'revolvente',
-        saldoInicial: 1047102,
-        saldoActual: 1047102,
-        tasaInteresMensual: 2.16,
-        cuotaValor: 84953,
+        saldoInicial: 1061478,
+        saldoActual: 1061478, // Actualizado según tu extracto
+        tasaInteresMensual: 0,
+        cuotaValor: 72719,  // Pago mínimo exacto de tu extracto
         cuotasTotales: 24,
         cuotasPagadas: 0,
         quincenaPago: 20,
         corteDia: 16,
         activo: true,
-        fechaUltimaActualizacion: hoyISO,
+        fechaUltimaActualizacion: '2026-09-16',
         historialPagos: []
       },
       {
