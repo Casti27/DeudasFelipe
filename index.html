@@ -863,7 +863,7 @@ function viewResumen(){
         <div class="pay-period-caption">${pagos.pagado ? `${fmt(pagos.pagado)} abonados · ` : ''}pendientes de ${fmt(pagos.total)} programados</div>
         <div class="pay-period-lines">
           ${pagos.detalles.length ? pagos.detalles.map(detalle => {
-            return `<div class="pay-period-line"><span>${escapeHtml(detalle.nombre)}${detalle.gasto ? ' · gasto fijo' : detalle.tarjeta ? ` · saldo actual ${fmt(detalle.cuota)}` : detalle.pagado ? ` · pagado ${fmt(Math.min(detalle.pagado, detalle.cuota))}` : ''}</span><strong>${fmt(detalle.pendiente)}</strong></div>`;
+            return `<div class="pay-period-line"><span>${escapeHtml(detalle.nombre)}${detalle.gasto ? ' · gasto fijo' : detalle.pagado ? ` · pagado ${fmt(Math.min(detalle.pagado, detalle.cuota))}` : ''}</span><strong>${fmt(detalle.pendiente)}</strong></div>`;
           }).join('') : '<div class="pay-period-line"><span>No hay cuotas configuradas para esta quincena</span><strong>$0</strong></div>'}
         </div>
       </section>`).join('')}
