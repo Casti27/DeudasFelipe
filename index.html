@@ -815,6 +815,7 @@ function renderDebtCard(deuda){
     </div>
     <div class="balance-label">Saldo pendiente</div>
     <div class="balance">${fmt(deuda.saldoActual)}</div>
+    ${deuda.id === 'd_rappi' ? `<button class="btn ghost full" style="margin-top:10px" onclick="actualizarSaldoRappi()">Actualizar saldo</button>` : ''}
     <div class="credit-metrics">
       <div><div class="metric-label">Tasa mensual</div><div class="metric-value">${tasa.toFixed(2)}% MV</div></div>
       <div><div class="metric-label">Interés aprox. / día</div><div class="metric-value">${fmt(interesDiario(deuda))}</div></div>
@@ -1413,6 +1414,52 @@ function confirmarMovimientoDeuda(id, tipo){
   if(pago && Number(deuda.cuotaValor) > 0 && valorAplicado >= Number(deuda.cuotaValor) * 0.98){
     deuda.cuotasPagadas = (deuda.cuotasPagadas || 0) + 1;
   }
+  saveData();
+  closeModal();
+  render();
+}
+
+function actualizarSaldoRappi(){
+  const deuda = data.deudas.find(item => item.id === 'd_rappi');
+  if(!deuda) return;
+  document.getElementById('modal-root').innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal">
+        <h3>Actualizar saldo de RappiCard</h3>
+        <p class="modal-sub">Saldo registrado: ${fmt(deuda.saldoActual)}</p>
+        <label>Saldo que muestra RappiCard ($)</label>
+        <input type="number" id="rappi-saldo" min="0" step="1" value="${Number(deuda.saldoActual) || 0}">
+        <div class="hint">Se reemplazará el saldo anterior por el que ingreses. No agregues compras individuales si el saldo ya incluye esas compras.</div>
+        <div class="modal-actions">
+          <button class="btn ghost" onclick="closeModal()">Cancelar</button>
+          <button class="btn primary" onclick="confirmarSaldoRappi()">Guardar saldo</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function confirmarSaldoRappi(){
+  const deuda = data.deudas.find(item => item.id === 'd_rappi');
+  if(!deuda) return;
+  const saldo = Number(document.getElementById('rappi-saldo').value);
+  if(!Number.isFinite(saldo) || saldo < 0){
+    alert('Ingresa un saldo válido igual o mayor que cero.');
+    return;
+  }
+  const saldoAnterior = Number(deuda.saldoActual) || 0;
+  const hoy = toISO(new Date());
+  deuda.saldoActual = saldo;
+  deuda.saldoInicial = Math.max(Number(deuda.saldoInicial) || 0, saldo);
+  deuda.fechaUltimaActualizacion = hoy;
+  deuda.activo = true;
+  deuda.historialPagos = deuda.historialPagos || [];
+  deuda.historialPagos.push({
+    id: uid('m'),
+    fecha: hoy,
+    tipo: 'ajuste_saldo',
+    monto: Math.abs(saldo - saldoAnterior),
+    nota: `Saldo actualizado de ${fmt(saldoAnterior)} a ${fmt(saldo)}`
+  });
   saveData();
   closeModal();
   render();
