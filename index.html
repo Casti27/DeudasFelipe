@@ -152,7 +152,7 @@
 <div id="modal-root"></div>
 
 <script>
-const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_2_octubre';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_3_octubre';
 let currentTab = 'resumen';
 let data = null;
 let openDeudaHistorialId = null;
@@ -171,8 +171,7 @@ function initialBaseData(){
     ingresos: [],
     gastos: [
       { id: 'g_mantenimiento', monto: 126000, fecha: '2026-09-05', nota: 'Mantenimiento Ns 200 (10.500km)', categoria: 'Mantenimientos' },
-      { id: 'g_rifa', monto: 20000, fecha: '2026-09-04', nota: 'Rifa aleja (028-242)', categoria: 'Rifa' },
-      { id: 'g_plan_datos', monto: 38400, fecha: '2026-10-20', nota: 'Plan de datos móvil', categoria: 'Servicios', quincenaPago: 20 }
+      { id: 'g_rifa', monto: 20000, fecha: '2026-09-04', nota: 'Rifa aleja (028-242)', categoria: 'Rifa' }
     ],
     deudas: [
       {
@@ -308,7 +307,7 @@ function initialBaseData(){
         ]
       }
     ],
-    migrations: ['fix-october-20-period-dates']
+    migrations: ['remove-plan-datos-separate-expense']
   };
 }
 
@@ -320,7 +319,7 @@ function normalizeData(raw){
     ...next,
     config: { ...base.config, ...(next.config || {}) },
     ingresos: Array.isArray(next.ingresos) ? next.ingresos : base.ingresos,
-    gastos: Array.isArray(next.gastos) ? next.gastos : base.gastos,
+    gastos: (Array.isArray(next.gastos) ? next.gastos : base.gastos).filter(g => g.id !== 'g_plan_datos'),
     deudas: (Array.isArray(next.deudas) ? next.deudas : base.deudas).map(deuda => ({
       ...deuda,
       historialPagos: Array.isArray(deuda.historialPagos) ? deuda.historialPagos : []
@@ -390,13 +389,7 @@ function diasPagoOrdenados(){
   return [...data.config.diasPago].sort((a,b) => a-b);
 }
 
-/* LÓGICA CORREGIDA DE QUINCENAS EN OCTUBRE */
 function getQuincenasOrdenadas(hoy){
-  const hoyM = midnight(hoy);
-  const diaMes = hoyM.getDate();
-
-  // Si estamos a 21 de Octubre, la quincena actual recién cerrada/en pago es la del Día 20 de Octubre (6-20 Oct)
-  // Y la siguiente es la del Día 5 de Noviembre (21 Oct - 5 Nov)
   const q1Inicio = new Date(2026, 9, 6);  // 6 Octubre
   const q1Fin = new Date(2026, 9, 20);    // 20 Octubre
 
@@ -423,7 +416,6 @@ function getPagosQuincena(periodo){
         : Number(deuda.quincenaPago) === pagoDia ? Number(deuda.cuotaValor || 0) : 0;
     if(pagoAsignado <= 0) return;
     
-    // Verificar si se ha realizado un pago en esta quincena específica
     const pagado = (deuda.historialPagos || []).some(m => {
       if (!m.fecha) return false;
       const esPago = (m.tipo === 'pago' || m.pago > 0);
