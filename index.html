@@ -152,7 +152,7 @@
 <div id="modal-root"></div>
 
 <script>
-const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_3_octubre';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_5_octubre';
 let currentTab = 'resumen';
 let data = null;
 let openDeudaHistorialId = null;
@@ -179,9 +179,9 @@ function initialBaseData(){
         nombre: 'Banco de Bogotá (Libre Inv.)',
         tipo: 'revolvente',
         saldoInicial: 9516075,
-        saldoActual: 7792417,
+        saldoActual: 7799258,
         tasaInteresMensual: 2.085,
-        cuotaValor: 510757,
+        cuotaValor: 507292,
         cuotasTotales: 24,
         cuotasPagadas: 2,
         quincenaPago: 5,
@@ -268,7 +268,7 @@ function initialBaseData(){
         fechaUltimaActualizacion: hoyISO,
         historialPagos: [
           { fecha: '2026-09-25', pago: 138057, saldoResultante: 1518622 },
-          { id: 'mmviommof684', fecha: '2026-10-21', tipo: 'pago', monto: 138057, nota: '' }
+          { id: 'mmviommof684', fecha: '2026-10-21', tipo: 'pago', monto: 138057, nota: 'Pago quincena oct' }
         ]
       },
       {
@@ -303,11 +303,11 @@ function initialBaseData(){
         activo: true,
         fechaUltimaActualizacion: hoyISO,
         historialPagos: [
-          { id: 'mmviomj3i800', fecha: '2026-10-21', tipo: 'pago', monto: 51642, nota: '' }
+          { id: 'mmviomj3i800', fecha: '2026-10-21', tipo: 'pago', monto: 51642, nota: 'Pago quincena oct' }
         ]
       }
     ],
-    migrations: ['remove-plan-datos-separate-expense']
+    migrations: ['grace-day-pay-periods']
   };
 }
 
@@ -389,17 +389,27 @@ function diasPagoOrdenados(){
   return [...data.config.diasPago].sort((a,b) => a-b);
 }
 
+/* DÍA DE GRACIA INCLUIDO PARA DÍAS 21 Y 6 */
 function getQuincenasOrdenadas(hoy){
-  const q1Inicio = new Date(2026, 9, 6);  // 6 Octubre
-  const q1Fin = new Date(2026, 9, 20);    // 20 Octubre
+  const hoyM = midnight(hoy);
+  const diaMes = hoyM.getDate();
+  const mes = hoyM.getMonth();
+  const anio = hoyM.getFullYear();
 
-  const q2Inicio = new Date(2026, 9, 21); // 21 Octubre
-  const q2Fin = new Date(2026, 10, 5);    // 5 Noviembre
-
-  return {
-    q1: { pagaEl: 20, inicio: q1Inicio, fin: q1Fin, rango: '6–20 oct' },
-    q2: { pagaEl: 5, inicio: q2Inicio, fin: q2Fin, rango: '21 oct – 5 nov' }
-  };
+  // Si hoy es día 21 o posterior (hasta el próximo 5), la quincena actual mostrada es la del 20 (incluye el 21 como día de gracia)
+  if (diaMes >= 6 && diaMes <= 21) {
+    return {
+      q1: { pagaEl: 20, inicio: new Date(anio, mes, 6), fin: new Date(anio, mes, 21), rango: `6–21 ${MESES[mes]}` },
+      q2: { pagaEl: 5, inicio: new Date(anio, mes, 22), fin: new Date(anio, mes + 1, 5), rango: `22 ${MESES[mes]} – 5 ${MESES[(mes + 1) % 12]}` }
+    };
+  } else {
+    // Si estamos entre el día 22 y el 6 del siguiente mes (incluye el 6 como día de gracia)
+    const mesInicio = diaMes >= 22 ? mes : mes - 1;
+    return {
+      q1: { pagaEl: 5, inicio: new Date(anio, mesInicio, 21), fin: new Date(anio, mesInicio + 1, 6), rango: `21 ${MESES[(mesInicio + 12) % 12]} – 6 ${MESES[(mesInicio + 1) % 12]}` },
+      q2: { pagaEl: 20, inicio: new Date(anio, mesInicio + 1, 7), fin: new Date(anio, mesInicio + 1, 20), rango: `7–20 ${MESES[(mesInicio + 1) % 12]}` }
+    };
+  }
 }
 
 function enRango(iso, inicio, fin){ const d = parseDate(iso); return d >= inicio && d <= fin; }
