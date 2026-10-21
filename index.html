@@ -56,10 +56,6 @@
   .credit-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 14px 0 12px; margin-top: 10px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .metric-label { color: var(--ink-soft); font-size: 10px; line-height: 1.4; }
   .metric-value { font-size: 12px; font-weight: 680; margin-top: 5px; }
-  .pill { display: inline-flex; align-items: center; white-space: nowrap; background: var(--accent-soft); color: var(--accent); border-radius: 20px; font-size: 10px; font-weight: 650; padding: 6px 9px; }
-  .pill.warn { background: #fbf1df; color: var(--warn); }
-  .progress-track { height: 5px; overflow: hidden; margin-top: 13px; background: #edf1f3; border-radius: 9px; }
-  .progress-fill { height: 100%; border-radius: inherit; background: var(--accent); }
   .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
   .row:last-child { border-bottom: 0; }
   .row .label { color: var(--ink-soft); }
@@ -118,7 +114,6 @@
   .pay-period-line.pagado span:first-child { color: var(--accent); font-weight: 650; }
   .pay-period-line.pagado strong { color: var(--accent); }
   .pay-period-line strong { white-space: nowrap; }
-  .pay-period-alert { color: var(--warn); background: #fbf1df; border-radius: 9px; padding: 8px 9px; margin-top: 10px; font-size: 10px; line-height: 1.45; }
   @media (max-width: 520px) {
     .header { padding: 20px 18px 12px; }
     main { padding: 8px 16px 108px; }
@@ -157,11 +152,9 @@
 <div id="modal-root"></div>
 
 <script>
-const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_1_octubre';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_2_octubre';
 let currentTab = 'resumen';
 let data = null;
-let showDetailsQ1 = false;
-let showDetailsQ2 = false;
 let openDeudaHistorialId = null;
 const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
@@ -206,7 +199,7 @@ function initialBaseData(){
         nombre: 'Colsubsidio (Cupo de crédito)',
         tipo: 'revolvente',
         saldoInicial: 1061478,
-        saldoActual: 1230064, // $1.320.385 - $90.321 abonados
+        saldoActual: 1230064,
         tasaInteresMensual: 2.13,
         tasaMoraMensual: 2.16,
         cuotaValor: 90321,
@@ -219,7 +212,7 @@ function initialBaseData(){
         historialPagos: [
           { fecha: '2026-09-18', pago: 72719, saldoResultante: 988759 },
           { fecha: '2026-10-01', tipo: 'retiro', monto: 300000, nota: 'Retiro de cupo' },
-          { id: 'colsub_pago_oct', fecha: hoyISO, tipo: 'pago', monto: 90321, nota: 'Abono cuota mensual' }
+          { id: 'colsub_pago_oct', fecha: '2026-10-21', tipo: 'pago', monto: 90321, nota: 'Abono cuota mensual' }
         ]
       },
       {
@@ -238,7 +231,7 @@ function initialBaseData(){
         activo: true,
         fechaUltimaActualizacion: hoyISO,
         historialPagos: [
-          { id: 'mmvioi7gq213', fecha: hoyISO, tipo: 'pago', monto: 700000, nota: 'Abono realizado' }
+          { id: 'mmvioi7gq213', fecha: '2026-10-21', tipo: 'pago', monto: 700000, nota: 'Abono realizado' }
         ]
       },
       {
@@ -276,7 +269,7 @@ function initialBaseData(){
         fechaUltimaActualizacion: hoyISO,
         historialPagos: [
           { fecha: '2026-09-25', pago: 138057, saldoResultante: 1518622 },
-          { id: 'mmviommof684', fecha: hoyISO, tipo: 'pago', monto: 138057, nota: '' }
+          { id: 'mmviommof684', fecha: '2026-10-21', tipo: 'pago', monto: 138057, nota: '' }
         ]
       },
       {
@@ -311,11 +304,11 @@ function initialBaseData(){
         activo: true,
         fechaUltimaActualizacion: hoyISO,
         historialPagos: [
-          { id: 'mmviomj3i800', fecha: hoyISO, tipo: 'pago', monto: 51642, nota: '' }
+          { id: 'mmviomj3i800', fecha: '2026-10-21', tipo: 'pago', monto: 51642, nota: '' }
         ]
       }
     ],
-    migrations: ['latest-snapshot-oct-2026']
+    migrations: ['fix-october-20-period-dates']
   };
 }
 
@@ -397,41 +390,23 @@ function diasPagoOrdenados(){
   return [...data.config.diasPago].sort((a,b) => a-b);
 }
 
+/* LÓGICA CORREGIDA DE QUINCENAS EN OCTUBRE */
 function getQuincenasOrdenadas(hoy){
   const hoyM = midnight(hoy);
   const diaMes = hoyM.getDate();
 
-  let qActualPagaEl = (diaMes >= 6 && diaMes <= 20) ? 20 : 5;
+  // Si estamos a 21 de Octubre, la quincena actual recién cerrada/en pago es la del Día 20 de Octubre (6-20 Oct)
+  // Y la siguiente es la del Día 5 de Noviembre (21 Oct - 5 Nov)
+  const q1Inicio = new Date(2026, 9, 6);  // 6 Octubre
+  const q1Fin = new Date(2026, 9, 20);    // 20 Octubre
 
-  function calcPeriodo(pagaDia, offsetMes){
-    let fin = new Date(hoyM.getFullYear(), hoyM.getMonth() + offsetMes, pagaDia);
-    let inicio = new Date(fin);
-    if(pagaDia === 20){
-      inicio.setDate(6);
-    } else {
-      inicio.setMonth(inicio.getMonth() - 1);
-      inicio.setDate(21);
-    }
-    return { pagaEl: pagaDia, inicio, fin, rango: rangoLabel(inicio, fin) };
-  }
+  const q2Inicio = new Date(2026, 9, 21); // 21 Octubre
+  const q2Fin = new Date(2026, 10, 5);    // 5 Noviembre
 
-  if(qActualPagaEl === 20){
-    return {
-      q1: calcPeriodo(20, 0),
-      q2: calcPeriodo(5, 1)
-    };
-  } else {
-    let off1 = diaMes >= 21 ? 1 : 0;
-    return {
-      q1: calcPeriodo(5, off1),
-      q2: calcPeriodo(20, off1)
-    };
-  }
-}
-
-function rangoLabel(inicio, fin){
-  if(inicio.getMonth() === fin.getMonth()) return `${inicio.getDate()}–${fin.getDate()} ${MESES[fin.getMonth()]}`;
-  return `${inicio.getDate()} ${MESES[inicio.getMonth()]} – ${fin.getDate()} ${MESES[fin.getMonth()]}`;
+  return {
+    q1: { pagaEl: 20, inicio: q1Inicio, fin: q1Fin, rango: '6–20 oct' },
+    q2: { pagaEl: 5, inicio: q2Inicio, fin: q2Fin, rango: '21 oct – 5 nov' }
+  };
 }
 
 function enRango(iso, inicio, fin){ const d = parseDate(iso); return d >= inicio && d <= fin; }
@@ -448,9 +423,12 @@ function getPagosQuincena(periodo){
         : Number(deuda.quincenaPago) === pagoDia ? Number(deuda.cuotaValor || 0) : 0;
     if(pagoAsignado <= 0) return;
     
-    // Verificar si se ha realizado un pago este mes
-    const mesActual = new Date().toISOString().slice(0, 7);
-    const pagado = (deuda.historialPagos || []).some(m => (m.tipo === 'pago' || m.pago > 0) && m.fecha && m.fecha.startsWith(mesActual));
+    // Verificar si se ha realizado un pago en esta quincena específica
+    const pagado = (deuda.historialPagos || []).some(m => {
+      if (!m.fecha) return false;
+      const esPago = (m.tipo === 'pago' || m.pago > 0);
+      return esPago && enRango(m.fecha, periodo.inicio, periodo.fin);
+    });
 
     detalles.push({
       id: deuda.id,
@@ -772,7 +750,6 @@ function borrarTodo(){
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 function openMovForm(){
-  const dias = diasPagoOrdenados();
   document.getElementById('modal-root').innerHTML = `
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
       <div class="modal">
