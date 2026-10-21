@@ -115,6 +115,8 @@
   .pay-period-lines { margin-top: 11px; }
   .pay-period-line { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 11px; }
   .pay-period-line span:first-child { color: var(--ink-soft); }
+  .pay-period-line.pagado span:first-child { color: var(--accent); font-weight: 650; }
+  .pay-period-line.pagado strong { color: var(--accent); }
   .pay-period-line strong { white-space: nowrap; }
   .pay-period-alert { color: var(--warn); background: #fbf1df; border-radius: 9px; padding: 8px 9px; margin-top: 10px; font-size: 10px; line-height: 1.45; }
   @media (max-width: 520px) {
@@ -155,7 +157,7 @@
 <div id="modal-root"></div>
 
 <script>
-const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_0';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_1_octubre';
 let currentTab = 'resumen';
 let data = null;
 let showDetailsQ1 = false;
@@ -176,7 +178,8 @@ function initialBaseData(){
     ingresos: [],
     gastos: [
       { id: 'g_mantenimiento', monto: 126000, fecha: '2026-09-05', nota: 'Mantenimiento Ns 200 (10.500km)', categoria: 'Mantenimientos' },
-      { id: 'g_rifa', monto: 20000, fecha: '2026-09-04', nota: 'Rifa aleja (028-242)', categoria: 'Rifa' }
+      { id: 'g_rifa', monto: 20000, fecha: '2026-09-04', nota: 'Rifa aleja (028-242)', categoria: 'Rifa' },
+      { id: 'g_plan_datos', monto: 38400, fecha: '2026-10-20', nota: 'Plan de datos móvil', categoria: 'Servicios', quincenaPago: 20 }
     ],
     deudas: [
       {
@@ -184,43 +187,47 @@ function initialBaseData(){
         nombre: 'Banco de Bogotá (Libre Inv.)',
         tipo: 'revolvente',
         saldoInicial: 9516075,
-        saldoActual: 8688491,
+        saldoActual: 7792417,
         tasaInteresMensual: 2.085,
         cuotaValor: 510757,
         cuotasTotales: 24,
-        cuotasPagadas: 1,
+        cuotasPagadas: 2,
         quincenaPago: 5,
         corteDia: 10,
         activo: true,
         fechaUltimaActualizacion: hoyISO,
-        historialPagos: [{ fecha: '2026-09-05', pago: 1000000, saldoResultante: 8533840 }]
+        historialPagos: [
+          { fecha: '2026-09-05', pago: 1000000, saldoResultante: 8533840 },
+          { id: 'mmux06svy422', fecha: '2026-10-06', tipo: 'pago', monto: 1000000, nota: '' }
+        ]
       },
       {
         id: 'd_colsub',
         nombre: 'Colsubsidio (Cupo de crédito)',
         tipo: 'revolvente',
         saldoInicial: 1061478,
-        saldoActual: 1302876,
+        saldoActual: 1230064, // $1.320.385 - $90.321 abonados
         tasaInteresMensual: 2.13,
         tasaMoraMensual: 2.16,
-        cuotaValor: 72719,
+        cuotaValor: 90321,
         cuotasTotales: 5,
-        cuotasPagadas: 1,
+        cuotasPagadas: 2,
         quincenaPago: 20,
         corteDia: 16,
         activo: true,
         fechaUltimaActualizacion: hoyISO,
         historialPagos: [
           { fecha: '2026-09-18', pago: 72719, saldoResultante: 988759 },
-          { fecha: '2026-10-01', tipo: 'retiro', monto: 300000, nota: 'Retiro de cupo reportado; incluido en el saldo actual' }
+          { fecha: '2026-10-01', tipo: 'retiro', monto: 300000, nota: 'Retiro de cupo' },
+          { id: 'colsub_pago_oct', fecha: hoyISO, tipo: 'pago', monto: 90321, nota: 'Abono cuota mensual' }
         ]
       },
       {
         id: 'd_rappi',
         nombre: 'RappiCard (Sin Intereses)',
         tipo: 'tarjeta',
-        saldoInicial: 776918,
-        saldoActual: 349317,
+        saldoInicial: 992461,
+        saldoActual: 292461,
         cupoTotal: 0,
         tasaInteresMensual: 0,
         cuotaValor: 0,
@@ -229,75 +236,93 @@ function initialBaseData(){
         quincenaPago: 20,
         corteDia: 20,
         activo: true,
-        fechaUltimaActualizacion: '2026-09-28',
+        fechaUltimaActualizacion: hoyISO,
         historialPagos: [
-          { fecha: '2026-09-18', compra: true, monto: 54998, nota: 'Gasolina' },
-          { fecha: '2026-09-21', pago: 871045, saldoResultante: 0 },
-          { fecha: '2026-09-21', compra: true, monto: 69572, nota: 'Ajuste salgo de cuotas ' },
-          { fecha: '2026-09-23', compra: true, monto: 12000, nota: 'Meli' },
-          { fecha: '2026-09-25', compra: true, monto: 50100, nota: 'Gasolina ' },
-          { fecha: '2026-09-25', compra: true, monto: 38400, nota: 'Plan de datos ' },
-          { fecha: '2026-09-28', compra: true, monto: 37810, nota: 'Protector Apple watch' },
-          { fecha: '2026-09-28', compra: true, monto: 24200, nota: 'Postres Sofía funza ' }
+          { id: 'mmvioi7gq213', fecha: hoyISO, tipo: 'pago', monto: 700000, nota: 'Abono realizado' }
         ]
       },
       {
         id: 'd_addi',
         nombre: 'Addi (Crédito e51993d8)',
         tipo: 'cuota_fija',
-        saldoInicial: 200516,
-        saldoActual: 48074,
+        saldoInicial: 246746,
+        saldoActual: 160065,
         tasaInteresMensual: 0,
-        cuotaValor: 48074,
+        cuotaValor: 95820,
         cuotasTotales: 2,
         cuotasPagadas: 1,
         quincenaPago: 20,
         corteDia: 16,
         activo: true,
-        fechaUltimaActualizacion: '2026-09-18',
-        historialPagos: [{ fecha: '2026-09-18', pago: 48074, saldoResultante: 48074 }]
+        fechaUltimaActualizacion: hoyISO,
+        historialPagos: [
+          { fecha: '2026-09-18', pago: 48074, saldoResultante: 48074 },
+          { id: 'mmvbj7rgz693', fecha: '2026-10-16', tipo: 'compra', monto: 110000, nota: 'Nueva compra a 3 cuotas' }
+        ]
       },
       {
         id: 'd_watch',
         nombre: 'Mercado Libre Apple Watch',
         tipo: 'cuota_fija',
         saldoInicial: 1656679,
-        saldoActual: 1518622,
+        saldoActual: 1380565,
         tasaInteresMensual: 0,
         cuotaValor: 138057,
         cuotasTotales: 12,
-        cuotasPagadas: 1,
+        cuotasPagadas: 2,
         quincenaPago: 20,
         corteDia: 20,
         activo: true,
-        fechaUltimaActualizacion: '2026-09-25',
-        historialPagos: [{ fecha: '2026-09-25', pago: 138057, saldoResultante: 1518622 }]
+        fechaUltimaActualizacion: hoyISO,
+        historialPagos: [
+          { fecha: '2026-09-25', pago: 138057, saldoResultante: 1518622 },
+          { id: 'mmviommof684', fecha: hoyISO, tipo: 'pago', monto: 138057, nota: '' }
+        ]
       },
       {
         id: 'd_moto',
         nombre: 'Seguro moto',
         tipo: 'cuota_fija',
         saldoInicial: 780000,
-        saldoActual: 780000,
+        saldoActual: 650000,
         tasaInteresMensual: 0,
         cuotaValor: 130000,
         cuotasTotales: 6,
-        cuotasPagadas: 0,
+        cuotasPagadas: 1,
         quincenaPago: 5,
         corteDia: 20,
         activo: true,
         fechaUltimaActualizacion: hoyISO,
-        historialPagos: []
+        historialPagos: [
+          { id: 'mmux08zik954', fecha: '2026-10-06', tipo: 'pago', monto: 130000, nota: '' }
+        ]
+      },
+      {
+        id: 'd_meli_mama',
+        nombre: 'Compra Meli (pago mamá)',
+        tipo: 'cuota_fija',
+        saldoInicial: 154926,
+        saldoActual: 103284,
+        tasaInteresMensual: 0,
+        cuotaValor: 51642,
+        cuotasTotales: null,
+        cuotasPagadas: 1,
+        quincenaPago: 20,
+        activo: true,
+        fechaUltimaActualizacion: hoyISO,
+        historialPagos: [
+          { id: 'mmviomj3i800', fecha: hoyISO, tipo: 'pago', monto: 51642, nota: '' }
+        ]
       }
     ],
-    migrations: ['colsub-216mv-withdrawal-20261001', 'latest-financial-snapshot-20261002', 'latest-financial-snapshot-correction-20261002', 'latest-financial-snapshot-correction-20261002-v2', 'colsub-advance-rate-213nm-20261002', 'user-snapshot-20261002-v1']
+    migrations: ['latest-snapshot-oct-2026']
   };
 }
 
 function normalizeData(raw){
   const base = initialBaseData();
   const next = raw && typeof raw === 'object' ? raw : {};
-  const normalized = {
+  return {
     ...base,
     ...next,
     config: { ...base.config, ...(next.config || {}) },
@@ -310,92 +335,6 @@ function normalizeData(raw){
     saldoAcumuladoAnterior: Number(next.saldoAcumuladoAnterior || 0),
     migrations: Array.isArray(next.migrations) ? next.migrations : []
   };
-  const colsub = normalized.deudas.find(deuda => deuda.id === 'd_colsub');
-  if(colsub && !normalized.migrations.includes('colsub-216mv-withdrawal-20261001')){
-    colsub.tasaInteresMensual = 2.16;
-    const fechaMovimiento = '2026-10-01';
-    const fechaActualizacion = colsub.fechaUltimaActualizacion || fechaMovimiento;
-    const desde = midnight(parseDate(fechaActualizacion));
-    const hasta = midnight(parseDate(fechaMovimiento));
-    const diasTranscurridos = Math.max(0, Math.floor((hasta - desde) / 86400000));
-    if(diasTranscurridos > 0){
-      const tasaDiaria = Math.pow(1 + colsub.tasaInteresMensual / 100, 1 / 30) - 1;
-      colsub.saldoActual = Math.round(Number(colsub.saldoActual || 0) * Math.pow(1 + tasaDiaria, diasTranscurridos));
-    }
-    colsub.saldoActual = Number(colsub.saldoActual || 0) + 300000;
-    colsub.saldoInicial = Number(colsub.saldoInicial || 0) + 300000;
-    colsub.fechaUltimaActualizacion = fechaMovimiento;
-    colsub.historialPagos.push({
-      id: 'm_colsub_retiro_20261001',
-      fecha: fechaMovimiento,
-      tipo: 'retiro',
-      monto: 300000,
-      nota: 'Retiro de cupo'
-    });
-    normalized.migrations.push('colsub-216mv-withdrawal-20261001');
-  }
-  return normalized;
-}
-
-function applyLatestFinancialSnapshot(){
-  const migrationId = 'user-snapshot-20261002-v1';
-  if(data.migrations.includes(migrationId)) return;
-  const snapshot = initialBaseData();
-  data.saldoAcumuladoAnterior = snapshot.saldoAcumuladoAnterior;
-  data.config = snapshot.config;
-  data.ingresos = snapshot.ingresos;
-  data.gastos = snapshot.gastos;
-  data.deudas = snapshot.deudas;
-  data.migrations = [...new Set([...(data.migrations || []), ...snapshot.migrations, migrationId])];
-}
-
-function applyColsubAdvanceRate(){
-  const migrationId = 'colsub-advance-rate-213nm-20261002';
-  if(data.migrations.includes(migrationId)) return;
-  const colsub = data.deudas.find(deuda => deuda.id === 'd_colsub');
-  if(!colsub) return;
-  colsub.tasaInteresMensual = 2.13;
-  colsub.tasaMoraMensual = 2.16;
-  colsub.fechaUltimaActualizacion = toISO(new Date());
-  colsub.historialPagos = colsub.historialPagos || [];
-  if(!colsub.historialPagos.some(movimiento => movimiento.id === 'm_colsub_retiro_20261001')){
-    colsub.historialPagos.push({
-      id: 'm_colsub_retiro_20261001',
-      fecha: '2026-10-01',
-      tipo: 'retiro',
-      monto: 300000,
-      nota: 'Retiro de cupo reportado; incluido en el saldo actual'
-    });
-  }
-  data.migrations.push(migrationId);
-}
-
-function applyUserSnapshot(){
-  const migrationId = 'user-snapshot-20261002-v1';
-  if(data.migrations.includes(migrationId)) return;
-  const snapshot = initialBaseData();
-  data.saldoAcumuladoAnterior = snapshot.saldoAcumuladoAnterior;
-  data.config = snapshot.config;
-  data.ingresos = snapshot.ingresos;
-  data.gastos = snapshot.gastos;
-  data.deudas = snapshot.deudas;
-  data.migrations = [...new Set([...(data.migrations || []), ...snapshot.migrations, migrationId])];
-}
-
-function applyMotoPaymentSchedule(){
-  const migrationId = 'moto-payment-day-5-20261002-v2';
-  if(data.migrations.includes(migrationId)) return;
-  const moto = data.deudas.find(deuda => deuda.id === 'd_moto');
-  if(moto) moto.quincenaPago = 5;
-  data.migrations.push(migrationId);
-}
-
-function applyClaroCardPayment(){
-  const migrationId = 'claro-paid-with-rappicard-20261002';
-  if(data.migrations.includes(migrationId)) return;
-  data.gastos = data.gastos || [];
-  data.gastos = data.gastos.filter(gasto => gasto.id !== 'g_claro');
-  data.migrations.push(migrationId);
 }
 
 function loadData(){
@@ -405,11 +344,6 @@ function loadData(){
   } catch(e){
     data = initialBaseData();
   }
-  applyLatestFinancialSnapshot();
-  applyColsubAdvanceRate();
-  applyUserSnapshot();
-  applyMotoPaymentSchedule();
-  applyClaroCardPayment();
   calcularInteresDiarioAcumulado();
   saveData();
   render();
@@ -483,8 +417,8 @@ function getQuincenasOrdenadas(hoy){
 
   if(qActualPagaEl === 20){
     return {
-      q1: calcPeriodo(20, 0),       // Quincena Activa Actual (6–20 sep)
-      q2: calcPeriodo(5, 1)         // Siguiente Quincena (21 sep – 5 oct)
+      q1: calcPeriodo(20, 0),
+      q2: calcPeriodo(5, 1)
     };
   } else {
     let off1 = diaMes >= 21 ? 1 : 0;
@@ -502,55 +436,6 @@ function rangoLabel(inicio, fin){
 
 function enRango(iso, inicio, fin){ const d = parseDate(iso); return d >= inicio && d <= fin; }
 
-function ingresoAutomatico(periodo){
-  if(periodo.pagaEl === 5){
-    return 1390548;
-  } else if(periodo.pagaEl === 20){
-    return 1090548;
-  }
-  return 0;
-}
-
-function sumIngresosManuales(inicio, fin){
-  return data.ingresos.filter(i => enRango(i.fecha, inicio, fin)).reduce((a,b) => a + Number(b.monto), 0);
-}
-
-function sumGastos(inicio, fin, periodo){
-  return data.gastos.reduce((acc, g) => {
-    if(g.quincenaPago) {
-      return g.quincenaPago === periodo.pagaEl ? acc + Number(g.monto) : acc;
-    }
-    return enRango(g.fecha, inicio, fin) ? acc + Number(g.monto) : acc;
-  }, 0);
-}
-
-function getCompromisosDeudasDetalle(periodo){
-  let lista = [];
-  data.deudas.filter(d => d.activo).forEach(d => {
-    let cuotaProg = 0;
-    if(d.tipo === 'tarjeta' && d.quincenaPago === periodo.pagaEl){
-      cuotaProg = Number(d.saldoActual);
-    } else if(d.quincenaPago === 'ambas'){
-      cuotaProg = Number(d.cuotaValor) / 2;
-    } else if(d.quincenaPago === periodo.pagaEl){
-      cuotaProg = Number(d.cuotaValor);
-    }
-
-    if(cuotaProg > 0){
-      let pagadoEnQ = 0;
-      (d.historialPagos || []).forEach(p => {
-        if(p.pago && enRango(p.fecha, periodo.inicio, periodo.fin)){
-          pagadoEnQ += Number(p.pago);
-        }
-      });
-      let egresoReal = Math.max(cuotaProg, pagadoEnQ);
-      let pendiente = Math.max(0, cuotaProg - pagadoEnQ);
-      lista.push({ nombre: d.nombre, cuotaProgramada: cuotaProg, pagado: pagadoEnQ, egresoReal: egresoReal, pendiente: pendiente, id: d.id });
-    }
-  });
-  return lista;
-}
-
 function getPagosQuincena(periodo){
   const detalles = [];
   data.deudas.filter(deuda => deuda.activo && Number(deuda.saldoActual) > 0).forEach(deuda => {
@@ -562,21 +447,22 @@ function getPagosQuincena(periodo){
         ? Number(deuda.cuotaValor || 0) / 2
         : Number(deuda.quincenaPago) === pagoDia ? Number(deuda.cuotaValor || 0) : 0;
     if(pagoAsignado <= 0) return;
-    const pagado = (deuda.historialPagos || []).reduce((total, movimiento) => {
-      if(!movimiento.fecha || !enRango(movimiento.fecha, periodo.inicio, periodo.fin)) return total;
-      const tipo = movimiento.tipo || (movimiento.pago ? 'pago' : movimiento.compra ? 'compra' : 'retiro');
-      return tipo === 'pago' ? total + Number(movimiento.monto || movimiento.pago || 0) : total;
-    }, 0);
+    
+    // Verificar si se ha realizado un pago este mes
+    const mesActual = new Date().toISOString().slice(0, 7);
+    const pagado = (deuda.historialPagos || []).some(m => (m.tipo === 'pago' || m.pago > 0) && m.fecha && m.fecha.startsWith(mesActual));
+
     detalles.push({
       id: deuda.id,
       nombre: deuda.nombre,
       cuota: pagoAsignado,
-      pagado: deuda.tipo === 'tarjeta' ? 0 : pagado,
-      pendiente: deuda.tipo === 'tarjeta' ? pagoAsignado : Math.max(0, pagoAsignado - pagado),
+      pagado: pagado,
+      pendiente: pagado ? 0 : pagoAsignado,
       tarjeta: deuda.tipo === 'tarjeta',
       gasto: false
     });
   });
+
   data.gastos.filter(gasto => Number(gasto.quincenaPago) === Number(periodo.pagaEl)).forEach(gasto => {
     const monto = Number(gasto.monto) || 0;
     if(monto <= 0) return;
@@ -584,18 +470,18 @@ function getPagosQuincena(periodo){
       id: gasto.id,
       nombre: gasto.nota || gasto.categoria || 'Gasto fijo',
       cuota: monto,
-      pagado: 0,
+      pagado: false,
       pendiente: monto,
       tarjeta: false,
       gasto: true
     });
   });
+
   return {
     detalles,
     total: detalles.reduce((total, detalle) => total + detalle.cuota, 0),
-    pagado: detalles.reduce((total, detalle) => total + Math.min(detalle.cuota, detalle.pagado), 0),
-    pendiente: detalles.reduce((total, detalle) => total + detalle.pendiente, 0),
-    tarjetaSaldoTotal: detalles.filter(detalle => detalle.tarjeta).reduce((total, detalle) => total + detalle.cuota, 0)
+    pagado: detalles.reduce((total, detalle) => total + (detalle.pagado ? detalle.cuota : 0), 0),
+    pendiente: detalles.reduce((total, detalle) => total + detalle.pendiente, 0)
   };
 }
 
@@ -611,7 +497,7 @@ function render(){
   const hoy = new Date();
   document.getElementById('hdr-sub').textContent = `${hoy.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'long'})}`;
 
-  if(currentTab === 'resumen') root.innerHTML = viewResumen(hoy);
+  if(currentTab === 'resumen') root.innerHTML = viewResumen();
   else if(currentTab === 'movimientos') root.innerHTML = viewMovimientos();
   else if(currentTab === 'deudas') root.innerHTML = viewDeudas();
   else root.innerHTML = viewAjustes();
@@ -624,125 +510,9 @@ function render(){
   topAction.onclick = currentTab === 'movimientos' ? openMovForm : openDeudaForm;
 }
 
-function addFab(icon, onclick){
-  const btn = document.createElement('button');
-  btn.className = 'fab'; btn.textContent = icon; btn.onclick = onclick;
-  document.getElementById('app').appendChild(btn);
-}
-
-function toggleDetails(qIndex){
-  if(qIndex === 1) showDetailsQ1 = !showDetailsQ1;
-  if(qIndex === 2) showDetailsQ2 = !showDetailsQ2;
-  render();
-}
-
 function toggleDeudaHistorial(id){
   openDeudaHistorialId = (openDeudaHistorialId === id) ? null : id;
   render();
-}
-
-function viewResumenAnterior(hoy){
-  const { q1, q2 } = getQuincenasOrdenadas(hoy);
-
-  const ingQ1 = ingresoAutomatico(q1) + sumIngresosManuales(q1.inicio, q1.fin);
-  const gasQ1 = sumGastos(q1.inicio, q1.fin, q1);
-  const compQ1 = getCompromisosDeudasDetalle(q1);
-  const totalCompQ1 = compQ1.reduce((a,b) => a + b.egresoReal, 0);
-  const totalEgresosQ1 = gasQ1 + totalCompQ1;
-  const libreQ1 = ingQ1 - totalEgresosQ1;
-  const pctQ1 = ingQ1 > 0 ? Math.min(100, Math.round((totalEgresosQ1 / ingQ1) * 100)) : 0;
-
-  const ingQ2 = ingresoAutomatico(q2) + sumIngresosManuales(q2.inicio, q2.fin);
-  const gasQ2 = sumGastos(q2.inicio, q2.fin, q2);
-  const compQ2 = getCompromisosDeudasDetalle(q2);
-  const totalCompQ2 = compQ2.reduce((a,b) => a + b.egresoReal, 0);
-  const totalEgresosQ2 = gasQ2 + totalCompQ2;
-  const libreQ2 = ingQ2 - totalEgresosQ2;
-  const pctQ2 = ingQ2 > 0 ? Math.min(100, Math.round((totalEgresosQ2 / ingQ2) * 100)) : 0;
-
-  const ahorroBase = data.saldoAcumuladoAnterior || 0;
-  const disponibleTotalReal = ahorroBase + libreQ1 + libreQ2;
-  const deudaTotal = data.deudas.filter(d => d.activo).reduce((a,b) => a + Number(b.saldoActual), 0);
-
-  let detailsQ1Html = '';
-  if(showDetailsQ1){
-    detailsQ1Html = `<div class="details-box"><strong>Desglose Créditos Quincena Día ${q1.pagaEl}:</strong><br>`;
-    compQ1.forEach(item => {
-      let est = item.pagado >= item.cuotaProgramada ? ` <span style="color:var(--ok)">(Pagado)</span>` : '';
-      detailsQ1Html += `<div class="row" style="padding:3px 0;"><span class="label">• ${escapeHtml(item.nombre)}${est}</span><span class="val">${fmt(item.egresoReal)}</span></div>`;
-    });
-    detailsQ1Html += `</div>`;
-  }
-
-  let detailsQ2Html = '';
-  if(showDetailsQ2){
-    detailsQ2Html = `<div class="details-box"><strong>Desglose Créditos Quincena Día ${q2.pagaEl}:</strong><br>`;
-    compQ2.forEach(item => {
-      let est = item.pagado >= item.cuotaProgramada ? ` <span style="color:var(--ok)">(Pagado)</span>` : '';
-      detailsQ2Html += `<div class="row" style="padding:3px 0;"><span class="label">• ${escapeHtml(item.nombre)}${est}</span><span class="val">${fmt(item.egresoReal)}</span></div>`;
-    });
-    detailsQ2Html += `</div>`;
-  }
-
-  let alertaAjusteHtml = '';
-  if(libreQ1 < 0){
-    alertaAjusteHtml = `
-      <div class="card" style="border-color:rgba(237,137,54,0.3)">
-        <h2 class="section-title" style="margin-top:0;color:var(--warn)">Reserva Requerida para Día ${q1.pagaEl}</h2>
-        <p class="hint" style="font-size:12.5px;color:var(--ink)">
-          Te has pasado por <strong style="color:#FC8181">${fmt(Math.abs(libreQ1))}</strong> en la quincena del ${q1.pagaEl}. Se sugiere apartar este valor de tu quincena del ${q2.pagaEl} o de tus fondos de reserva.
-        </p>
-      </div>`;
-  }
-
-  return `
-    <div class="card hero-figure">
-      <div class="hero-label">Disponible Total Real</div>
-      <div class="hero-amount ok">${fmt(disponibleTotalReal)}</div>
-      <div class="hero-note ok">Consolidado general de caja y dos quincenas</div>
-    </div>
-
-    ${alertaAjusteHtml}
-
-    <div class="card">
-      <h2 class="section-title" style="margin-top:0">Quincena del Día ${q1.pagaEl} (${q1.rango})</h2>
-      <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ1)}</span></div>
-      <div class="row clickable-row" onclick="toggleDetails(1)">
-        <span class="label">Cuotas asignadas ▾</span>
-        <span class="val neg">- ${fmt(totalCompQ1)}</span>
-      </div>
-      ${detailsQ1Html}
-      <div class="row"><span class="label">Gastos diarios y servicios</span><span class="val neg">- ${fmt(gasQ1)}</span></div>
-      <div class="row"><span class="label" style="font-weight:600;color:var(--ink)">Margen libre en quincena</span><span class="val" style="font-weight:700;color:${libreQ1<0?'var(--bad)':'var(--ok)'}">${fmt(libreQ1)}</span></div>
-      
-      <div class="hint" style="margin-top:8px;display:flex;justify-content:space-between">
-        <span>Comprometido <strong>${pctQ1}%</strong></span>
-      </div>
-      <div class="progress-track"><div class="progress-fill ${pctQ1>100?'bad':''}" style="width:${pctQ1}%"></div></div>
-    </div>
-
-    <div class="card">
-      <h2 class="section-title" style="margin-top:0">Quincena del Día ${q2.pagaEl} (${q2.rango})</h2>
-      <div class="row"><span class="label">Ingreso esperado</span><span class="val">${fmt(ingQ2)}</span></div>
-      <div class="row clickable-row" onclick="toggleDetails(2)">
-        <span class="label">Cuotas asignadas ▾</span>
-        <span class="val neg">- ${fmt(totalCompQ2)}</span>
-      </div>
-      ${detailsQ2Html}
-      <div class="row"><span class="label">Gastos diarios y servicios</span><span class="val neg">- ${fmt(gasQ2)}</span></div>
-      <div class="row"><span class="label" style="font-weight:600;color:var(--ink)">Margen libre en quincena</span><span class="val" style="font-weight:700;color:${libreQ2<0?'var(--bad)':'var(--ok)'}">${fmt(libreQ2)}</span></div>
-      
-      <div class="hint" style="margin-top:8px;display:flex;justify-content:space-between">
-        <span>Comprometido <strong>${pctQ2}%</strong></span>
-      </div>
-      <div class="progress-track"><div class="progress-fill ${pctQ2>100?'bad':''}" style="width:${pctQ2}%"></div></div>
-    </div>
-
-    <div class="card">
-      <div class="row"><span class="label">Fondo Acumulado (Caja)</span><span class="val" style="color:var(--ok)">+ ${fmt(ahorroBase)}</span></div>
-      <div class="row"><span class="label">Deuda global acumulada</span><span class="val neg">${fmt(deudaTotal)}</span></div>
-    </div>
-  `;
 }
 
 function interesDiario(deuda){
@@ -770,7 +540,7 @@ function plazoLabel(deuda){
   if(meses < 12) return `${meses} ${meses === 1 ? 'mes' : 'meses'}`;
   const anios = Math.floor(meses / 12);
   const restantes = meses % 12;
-  return `${anios} ${anios === 1 ? 'año' : 'años'}${restantes ? `, ${restantes} ${restantes === 1 ? 'mes' : 'meses'}` : ''}`;
+  return `${anios} ${anios === 1 ? 'año' : 'años'}${restantes ? `, ${restantes}${restantes === 1 ? 'mes' : 'meses'}` : ''}`;
 }
 
 function fechaLabel(iso){
@@ -845,6 +615,7 @@ function viewResumen(){
     pagos: getPagosQuincena(periodo)
   }));
   const destacadas = [...activas].sort((a, b) => Number(b.saldoActual) - Number(a.saldoActual)).slice(0, 3);
+
   return `<div class="card hero-card">
       <div class="hero-label">Saldo total pendiente</div>
       <div class="hero-amount">${fmt(totalDeuda)}</div>
@@ -859,12 +630,16 @@ function viewResumen(){
     </div>
     <div class="pay-period-grid">
       ${quincenas.map(({periodo, pagos}, index) => `<section class="pay-period-card ${index === 0 ? 'next' : ''}">
-        <div class="pay-period-date">DÍA ${periodo.pagaEl} · ${periodo.rango}</div>
+        <div class="pay-period-date">DÍA ${periodo.pagaEl} ·${periodo.rango}</div>
         <div class="pay-period-total">${fmt(pagos.pendiente)}</div>
         <div class="pay-period-caption">${pagos.pagado ? `${fmt(pagos.pagado)} abonados · ` : ''}pendientes de ${fmt(pagos.total)} programados</div>
         <div class="pay-period-lines">
           ${pagos.detalles.length ? pagos.detalles.map(detalle => {
-            return `<div class="pay-period-line"><span>${escapeHtml(detalle.nombre)}${detalle.gasto ? ' · gasto fijo' : detalle.pagado ? ` · pagado ${fmt(Math.min(detalle.pagado, detalle.cuota))}` : ''}</span><strong>${fmt(detalle.pendiente)}</strong></div>`;
+            const esPagado = detalle.pagado;
+            return `<div class="pay-period-line ${esPagado ? 'pagado' : ''}">
+              <span>${escapeHtml(detalle.nombre)}${detalle.gasto ? ' · gasto fijo' : esPagado ? ' · pagado' : ''}</span>
+              <strong>${fmt(detalle.cuota)}</strong>
+            </div>`;
           }).join('') : '<div class="pay-period-line"><span>No hay cuotas configuradas para esta quincena</span><strong>$0</strong></div>'}
         </div>
       </section>`).join('')}
@@ -946,7 +721,7 @@ function viewAjustes(){
 function exportarRespaldo(){
   const jsonStr = JSON.stringify(data);
   navigator.clipboard.writeText(jsonStr).then(() => {
-    alert('¡Respaldo copiado al portapapeles! Guárdalo en tus Notas o WhatsApp para pegarlo en la nueva versión.');
+    alert('¡Respaldo copiado al portapapeles!');
   }).catch(() => {
     prompt('Copia este texto manualmente:', jsonStr);
   });
@@ -974,12 +749,6 @@ function aplicarRespaldo(){
     const parsed = JSON.parse(txt);
     if(parsed && parsed.deudas){
       data = normalizeData(parsed);
-      data.migrations = [...new Set([...(data.migrations || []), 'latest-financial-snapshot-correction-20261002-v2'])];
-      applyColsubAdvanceRate();
-      applyUserSnapshot();
-      applyMotoPaymentSchedule();
-      applyClaroCardPayment();
-      calcularInteresDiarioAcumulado();
       saveData();
       closeModal();
       render();
@@ -988,17 +757,8 @@ function aplicarRespaldo(){
       alert('El formato del respaldo no es válido.');
     }
   } catch(e){
-    alert('Error al leer el respaldo. Asegúrate de copiarlo completo.');
+    alert('Error al leer el respaldo.');
   }
-}
-
-function guardarAjustes(){
-  const d1 = parseInt(document.getElementById('a-dia1').value, 10);
-  const d2 = parseInt(document.getElementById('a-dia2').value, 10);
-  if(d1 >= 1 && d1 <= 28 && d2 >= 1 && d2 <= 28 && d1 !== d2) data.config.diasPago = [d1, d2];
-
-  saveData();
-  render();
 }
 
 function borrarTodo(){
@@ -1011,76 +771,36 @@ function borrarTodo(){
 
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-/* Movimientos con Recurrencia */
 function openMovForm(){
   const dias = diasPagoOrdenados();
   document.getElementById('modal-root').innerHTML = `
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
       <div class="modal">
         <h3>Registrar Movimiento</h3>
-        <div class="seg" id="mov-tipo-seg">
-          <button class="sel" data-v="gasto" onclick="setMovTipo('gasto')">Gasto</button>
-          <button data-v="ingreso" onclick="setMovTipo('ingreso')">Ingreso Extra</button>
-        </div>
         <label>Monto ($)</label>
         <input type="number" id="mov-monto" placeholder="0">
-        
-        <div id="mov-fijo-wrap">
-          <label>Frecuencia / Recurrencia</label>
-          <div class="seg" id="mov-fijo-seg">
-            <button class="sel" data-v="fecha" onclick="setRecurrenciaTipo('fecha')">Ocasional</button>
-            <button data-v="${dias[0]}" onclick="setRecurrenciaTipo(${dias[0]})">Fijo Q.${dias[0]}</button>
-            <button data-v="${dias[1]}" onclick="setRecurrenciaTipo(${dias[1]})">Fijo Q.${dias[1]}</button>
-          </div>
-        </div>
-
-        <div id="mov-fecha-wrap">
-          <label>Fecha de Registro</label>
-          <input type="date" id="mov-fecha" value="${toISO(new Date())}">
-        </div>
-
-        <div id="mov-categoria-wrap">
-          <label>Categoría</label>
-          <input type="text" id="mov-categoria" placeholder="Ej: Servicios, Mercado, Suscripción">
-        </div>
-        <label>Descripción / Nombre</label>
-        <input type="text" id="mov-nota" placeholder="Ej: Plan Claro, Netflix, Gimnasio...">
+        <label>Fecha</label>
+        <input type="date" id="mov-fecha" value="${toISO(new Date())}">
+        <label>Categoría</label>
+        <input type="text" id="mov-categoria" placeholder="Servicios, Mercado, etc.">
+        <label>Descripción</label>
+        <input type="text" id="mov-nota" placeholder="Detalle del gasto...">
         <div class="modal-actions">
           <button class="btn ghost" onclick="closeModal()">Cancelar</button>
           <button class="btn primary" onclick="guardarMov()">Guardar</button>
         </div>
       </div>
     </div>`;
-  window._movTipo = 'gasto';
-  window._movRecurrencia = 'fecha';
-}
-
-function setMovTipo(t){
-  window._movTipo = t;
-  document.querySelectorAll('#mov-tipo-seg button').forEach(b => b.classList.toggle('sel', b.dataset.v === t));
-  document.getElementById('mov-categoria-wrap').style.display = t === 'gasto' ? 'block' : 'none';
-  document.getElementById('mov-fijo-wrap').style.display = t === 'gasto' ? 'block' : 'none';
-}
-
-function setRecurrenciaTipo(r){
-  window._movRecurrencia = r;
-  document.querySelectorAll('#mov-fijo-seg button').forEach(b => b.classList.toggle('sel', String(b.dataset.v) === String(r)));
-  document.getElementById('mov-fecha-wrap').style.display = r === 'fecha' ? 'block' : 'none';
 }
 
 function guardarMov(){
   const monto = parseFloat(document.getElementById('mov-monto').value);
   const fecha = document.getElementById('mov-fecha').value || toISO(new Date());
   const nota = document.getElementById('mov-nota').value;
+  const categoria = document.getElementById('mov-categoria').value || 'General';
   if(!monto || monto <= 0){ alert('Ingresa un monto válido.'); return; }
 
-  if(window._movTipo === 'ingreso') {
-    data.ingresos.push({ id: uid('i'), monto, fecha, nota });
-  } else {
-    const categoria = document.getElementById('mov-categoria').value || 'General';
-    const qPago = window._movRecurrencia !== 'fecha' ? parseInt(window._movRecurrencia, 10) : null;
-    data.gastos.push({ id: uid('g'), monto, fecha, nota, categoria, quincenaPago: qPago });
-  }
+  data.gastos.push({ id: uid('g'), monto, fecha, nota, categoria });
   saveData(); closeModal(); render();
 }
 
@@ -1090,178 +810,6 @@ function eliminarMov(tipo, id){
   saveData(); render();
 }
 
-/* Deudas Formulario y Edición */
-function openDeudaFormLegacy(editId = null){
-  const dias = diasPagoOrdenados();
-  let d = editId ? data.deudas.find(x => x.id === editId) : null;
-
-  const nombreVal = d ? d.nombre : '';
-  const tipoVal = d ? d.tipo : 'cuota_fija';
-  const saldoVal = d ? d.saldoActual : '';
-  const cuotasTotalesVal = d ? (d.cuotasTotales || '') : '';
-  const interesVal = d ? d.tasaInteresMensual : '';
-  const qVal = d ? d.quincenaPago : dias[0];
-
-  document.getElementById('modal-root').innerHTML = `
-    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
-      <div class="modal">
-        <h3>${d ? 'Editar' : 'Nuevo'} Crédito o Compra</h3>
-        <label>Nombre de la Entidad / Compra</label>
-        <input type="text" id="d-nombre" value="${escapeHtml(nombreVal)}" placeholder="Ej: Apple Watch, Seguro Moto">
-        <label>Tipo de Crédito</label>
-        <div class="seg" id="d-tipo-seg">
-          <button class="${tipoVal==='cuota_fija'?'sel':''}" data-v="cuota_fija" onclick="setDeudaTipo('cuota_fija')">Cuota Fija</button>
-          <button class="${tipoVal==='revolvente'?'sel':''}" data-v="revolvente" onclick="setDeudaTipo('revolvente')">Interés Variable</button>
-          <button class="${tipoVal==='tarjeta'?'sel':''}" data-v="tarjeta" onclick="setDeudaTipo('tarjeta')">Tarjeta Crédito</button>
-        </div>
-        <label>Saldo Pendiente ($)</label>
-        <input type="number" id="d-saldo" value="${saldoVal}" placeholder="0">
-        
-        <div id="d-cuotas-totales-wrap" style="${tipoVal==='cuota_fija'?'block':'none'}">
-          <label>Número de Cuotas Totales</label>
-          <input type="number" id="d-cuotas-totales" value="${cuotasTotalesVal}" placeholder="Ej: 12, 6, 24">
-        </div>
-
-        <div id="d-interes-wrap" style="${tipoVal==='revolvente'?'block':'none'}">
-          <label>Interés Mensual (% MV)</label>
-          <input type="number" step="0.01" id="d-interes" value="${interesVal}" placeholder="Ej: 2.1">
-        </div>
-
-        <label>Quincena de Pago Habitual</label>
-        <div class="seg" id="d-quincena-seg">
-          <button class="${qVal===dias[0]?'sel':''}" data-v="${dias[0]}" onclick="setDeudaQuincena(${dias[0]})">Día ${dias[0]}</button>
-          <button class="${qVal===dias[1]?'sel':''}" data-v="${dias[1]}" onclick="setDeudaQuincena(${dias[1]})">Día ${dias[1]}</button>
-        </div>
-        <div class="modal-actions">
-          <button class="btn ghost" onclick="closeModal()">Cancelar</button>
-          <button class="btn primary" onclick="guardarDeuda('${editId||''}')">Guardar</button>
-        </div>
-      </div>
-    </div>`;
-  window._deudaTipo = tipoVal;
-  window._deudaQuincena = qVal;
-}
-
-function setDeudaTipo(t){
-  window._deudaTipo = t;
-  document.querySelectorAll('#d-tipo-seg button').forEach(b => b.classList.toggle('sel', b.dataset.v === t));
-  document.getElementById('d-interes-wrap').style.display = t === 'revolvente' ? 'block' : 'none';
-  document.getElementById('d-cuotas-totales-wrap').style.display = t === 'cuota_fija' ? 'block' : 'none';
-}
-
-function setDeudaQuincena(q){
-  window._deudaQuincena = q;
-  document.querySelectorAll('#d-quincena-seg button').forEach(b => b.classList.toggle('sel', String(b.dataset.v) === String(q)));
-}
-
-function guardarDeudaLegacy(editId){
-  const nombre = document.getElementById('d-nombre').value.trim();
-  const saldo = parseFloat(document.getElementById('d-saldo').value);
-  const tipo = window._deudaTipo;
-  const cuotasTotales = parseInt(document.getElementById('d-cuotas-totales').value, 10) || null;
-  const interes = (tipo === 'revolvente') ? (parseFloat(document.getElementById('d-interes').value)||0) : 0;
-
-  if(!nombre || isNaN(saldo) || (tipo === 'cuota_fija' && (!cuotasTotales || cuotasTotales <= 0))){
-    alert('Ingresa nombre, saldo y número de cuotas válidos.'); return;
-  }
-
-  const cuota = tipo === 'cuota_fija' ? Math.round(saldo / cuotasTotales) : 0;
-
-  if(editId){
-    let d = data.deudas.find(x => x.id === editId);
-    if(d){
-      d.nombre = nombre; d.tipo = tipo; d.saldoActual = saldo;
-      d.cuotaValor = cuota; d.cuotasTotales = cuotasTotales;
-      d.tasaInteresMensual = interes; d.quincenaPago = window._deudaQuincena;
-    }
-  } else {
-    data.deudas.push({
-      id: uid('d'), nombre, tipo, saldoInicial: saldo, saldoActual: saldo,
-      tasaInteresMensual: interes, cuotaValor: cuota, cuotasTotales: cuotasTotales, cuotasPagadas: 0,
-      quincenaPago: window._deudaQuincena, activo: true, fechaUltimaActualizacion: toISO(new Date()), historialPagos: []
-    });
-  }
-
-  saveData(); closeModal(); render();
-}
-
-function eliminarDeuda(id){
-  if(confirm('¿Eliminar esta obligación financiera?')){
-    data.deudas = data.deudas.filter(d => d.id !== id);
-    saveData(); render();
-  }
-}
-
-function registrarPago(id){
-  const d = data.deudas.find(x => x.id === id); if(!d) return;
-  document.getElementById('modal-root').innerHTML = `
-    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
-      <div class="modal">
-        <h3>Abonar / Pagar · ${escapeHtml(d.nombre)}</h3>
-        <div class="row"><span class="label">Saldo actual pendiente</span><span class="val">${fmt(d.saldoActual)}</span></div>
-        <label>Monto a Pagar ($)</label>
-        <input type="number" id="pago-monto" value="${d.tipo==='tarjeta' ? d.saldoActual : d.cuotaValor}">
-        <label>Fecha de Pago</label>
-        <input type="date" id="pago-fecha" value="${toISO(new Date())}">
-        <div class="modal-actions">
-          <button class="btn ghost" onclick="closeModal()">Cancelar</button>
-          <button class="btn primary" onclick="confirmarPago('${id}')">Aplicar Pago</button>
-        </div>
-      </div>
-    </div>`;
-}
-
-function confirmarPago(id){
-  const d = data.deudas.find(x => x.id === id);
-  const pago = parseFloat(document.getElementById('pago-monto').value);
-  const fecha = document.getElementById('pago-fecha').value;
-  if(isNaN(pago) || pago <= 0){ alert('Ingresa un monto válido.'); return; }
-
-  const pagoAplicado = Math.min(pago, Number(d.saldoActual) || pago);
-  d.saldoActual = Math.max(0, Number(d.saldoActual || 0) - pagoAplicado);
-
-  const cuotaProgramada = Number(d.cuotaValor) || 0;
-  if(d.tipo !== 'tarjeta' && cuotaProgramada > 0 && pagoAplicado >= cuotaProgramada * 0.98){
-    d.cuotasPagadas = (d.cuotasPagadas || 0) + 1;
-  }
-
-  d.fechaUltimaActualizacion = toISO(new Date());
-  d.historialPagos.push({ fecha, pago: pagoAplicado, saldoResultante: d.saldoActual });
-  saveData(); closeModal(); render();
-}
-
-function agregarCompra(id){
-  const d = data.deudas.find(x => x.id === id); if(!d) return;
-  document.getElementById('modal-root').innerHTML = `
-    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
-      <div class="modal">
-        <h3>Nueva Compra · ${escapeHtml(d.nombre)}</h3>
-        <label>Monto de la Compra ($)</label>
-        <input type="number" id="compra-monto" placeholder="0">
-        <label>Fecha</label>
-        <input type="date" id="compra-fecha" value="${toISO(new Date())}">
-        <label>Detalle / Establecimiento</label>
-        <input type="text" id="compra-nota" placeholder="Ej: Gasolina, Supermercado...">
-        <div class="modal-actions">
-          <button class="btn ghost" onclick="closeModal()">Cancelar</button>
-          <button class="btn primary" onclick="confirmarCompra('${id}')">Cargar a Tarjeta</button>
-        </div>
-      </div>
-    </div>`;
-}
-
-function confirmarCompra(id){
-  const d = data.deudas.find(x => x.id === id);
-  const monto = parseFloat(document.getElementById('compra-monto').value);
-  const fecha = document.getElementById('compra-fecha').value;
-  const nota = document.getElementById('compra-nota').value;
-  if(!monto || monto <= 0){ alert('Ingresa un monto válido.'); return; }
-  d.saldoActual += monto;
-  d.fechaUltimaActualizacion = toISO(new Date());
-  d.historialPagos.push({ fecha, compra: true, monto, nota });
-  saveData(); closeModal(); render();
-}
-
 function openDeudaForm(editId = null){
   const deuda = editId ? data.deudas.find(item => item.id === editId) : null;
   const dias = diasPagoOrdenados();
@@ -1269,7 +817,7 @@ function openDeudaForm(editId = null){
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
       <div class="modal">
         <h3>${deuda ? 'Editar crédito' : 'Agregar crédito'}</h3>
-        <p class="modal-sub">${deuda ? 'El saldo no se modifica aquí; regístralo como retiro o pago para conservar el historial.' : 'Registra el saldo pendiente de hoy y sus condiciones.'}</p>
+        <p class="modal-sub">${deuda ? 'Ajusta los parámetros del crédito.' : 'Registra el saldo pendiente de hoy y sus condiciones.'}</p>
         <label>Entidad o nombre del crédito</label>
         <input type="text" id="d-nombre" value="${escapeHtml(deuda ? deuda.nombre : '')}" placeholder="Ej. Crédito Colsubsidio">
         <label>Tipo de crédito</label>
@@ -1287,7 +835,6 @@ function openDeudaForm(editId = null){
         <select id="d-quincena">
           ${dias.map(dia => `<option value="${dia}" ${deuda ? Number(deuda.quincenaPago) === dia ? 'selected' : '' : dia === dias[0] ? 'selected' : ''}>Día ${dia}</option>`).join('')}
         </select>
-        <div class="hint">El tiempo estimado para pagar se calcula con esta cuota y la tasa mensual registrada.</div>
         <div class="modal-actions">
           <button class="btn ghost" onclick="closeModal()">Cancelar</button>
           <button class="btn primary" onclick="guardarDeuda('${editId || ''}')">Guardar crédito</button>
@@ -1303,8 +850,9 @@ function guardarDeuda(editId){
   const cuota = Number(document.getElementById('d-cuota').value) || 0;
   const diaPago = Number(document.getElementById('d-quincena').value);
   const fechaHoy = toISO(new Date());
-  if(!nombre || !Number.isFinite(interes) || interes < 0 || ![...diasPagoOrdenados()].includes(diaPago)){
-    alert('Revisa el nombre, la tasa y el día de pago del crédito.');
+
+  if(!nombre || !Number.isFinite(interes) || interes < 0){
+    alert('Revisa el nombre y la tasa del crédito.');
     return;
   }
 
@@ -1336,18 +884,10 @@ function guardarDeuda(editId){
       quincenaPago: diaPago,
       activo: true,
       fechaUltimaActualizacion: fechaHoy,
-      historialPagos: [{
-        id: uid('m'),
-        fecha: fechaHoy,
-        tipo: 'saldo_inicial',
-        monto: saldo,
-        nota: 'Saldo inicial registrado'
-      }]
+      historialPagos: [{ id: uid('m'), fecha: fechaHoy, tipo: 'saldo_inicial', monto: saldo, nota: 'Saldo inicial' }]
     });
   }
-  saveData();
-  closeModal();
-  render();
+  saveData(); closeModal(); render();
 }
 
 function registrarMovimientoDeuda(id, tipo){
@@ -1362,10 +902,9 @@ function registrarMovimientoDeuda(id, tipo){
         <label>Valor ($)</label>
         <input type="number" id="mov-deuda-monto" min="1" step="1" value="${esPago ? Math.min(Number(deuda.cuotaValor) || Number(deuda.saldoActual), Number(deuda.saldoActual)) : ''}" placeholder="0">
         <label>Fecha del movimiento</label>
-        <input type="date" id="mov-deuda-fecha" value="${toISO(new Date())}" max="${toISO(new Date())}">
+        <input type="date" id="mov-deuda-fecha" value="${toISO(new Date())}">
         <label>Detalle (opcional)</label>
-        <input type="text" id="mov-deuda-nota" placeholder="${esPago ? 'Ej. Pago mínimo' : 'Ej. Retiro en Colsubsidio'}">
-        <div class="hint">${esPago ? 'El abono se descontará del saldo pendiente.' : 'El valor se sumará al saldo y comenzará a generar intereses según la tasa configurada.'}</div>
+        <input type="text" id="mov-deuda-nota" placeholder="${esPago ? 'Ej. Pago cuota' : 'Ej. Avance de cupo'}">
         <div class="modal-actions">
           <button class="btn ghost" onclick="closeModal()">Cancelar</button>
           <button class="btn primary" onclick="confirmarMovimientoDeuda('${id}','${tipo}')">${esPago ? 'Aplicar pago' : 'Agregar al saldo'}</button>
@@ -1381,42 +920,16 @@ function confirmarMovimientoDeuda(id, tipo){
   const fecha = document.getElementById('mov-deuda-fecha').value;
   const nota = document.getElementById('mov-deuda-nota').value.trim();
   const hoy = toISO(new Date());
-  if(!Number.isFinite(monto) || monto <= 0){
-    alert('Ingresa un valor mayor que cero.');
-    return;
-  }
-  if(!fecha || fecha > hoy){
-    alert('La fecha del movimiento debe ser hoy o anterior.');
-    return;
-  }
+
+  if(!Number.isFinite(monto) || monto <= 0){ alert('Ingresa un valor mayor que cero.'); return; }
 
   const pago = tipo === 'pago';
-  const diasDesdeMovimiento = Math.max(0, Math.floor((midnight(new Date()) - midnight(parseDate(fecha))) / 86400000));
-  const tasaDiaria = Math.pow(1 + (Number(deuda.tasaInteresMensual) || 0) / 100, 1 / 30) - 1;
-  const valorActualizado = Math.round(monto * Math.pow(1 + tasaDiaria, diasDesdeMovimiento));
-  const valorAplicado = pago ? Math.min(valorActualizado, Number(deuda.saldoActual) || 0) : valorActualizado;
-  deuda.saldoActual = Math.max(0, Number(deuda.saldoActual || 0) + (pago ? -valorAplicado : valorAplicado));
-  if(!pago){
-    deuda.saldoInicial = (Number(deuda.saldoInicial) || 0) + monto;
-    deuda.activo = true;
-  } else if(deuda.saldoActual === 0){
-    deuda.activo = false;
-  }
+  deuda.saldoActual = Math.max(0, Number(deuda.saldoActual || 0) + (pago ? -monto : monto));
   deuda.fechaUltimaActualizacion = hoy;
   deuda.historialPagos = deuda.historialPagos || [];
-  deuda.historialPagos.push({
-    id: uid('m'),
-    fecha,
-    tipo: pago ? 'pago' : 'retiro',
-    monto: monto,
-    nota
-  });
-  if(pago && Number(deuda.cuotaValor) > 0 && valorAplicado >= Number(deuda.cuotaValor) * 0.98){
-    deuda.cuotasPagadas = (deuda.cuotasPagadas || 0) + 1;
-  }
-  saveData();
-  closeModal();
-  render();
+  deuda.historialPagos.push({ id: uid('m'), fecha, tipo: pago ? 'pago' : 'retiro', monto, nota });
+
+  saveData(); closeModal(); render();
 }
 
 function actualizarSaldoRappi(){
@@ -1426,10 +939,8 @@ function actualizarSaldoRappi(){
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
       <div class="modal">
         <h3>Actualizar saldo de RappiCard</h3>
-        <p class="modal-sub">Saldo registrado: ${fmt(deuda.saldoActual)}</p>
         <label>Saldo que muestra RappiCard ($)</label>
-        <input type="number" id="rappi-saldo" min="0" step="1" value="${Number(deuda.saldoActual) || 0}">
-        <div class="hint">Se reemplazará el saldo anterior por el que ingreses. No agregues compras individuales si el saldo ya incluye esas compras.</div>
+        <input type="number" id="rappi-saldo" value="${Number(deuda.saldoActual) || 0}">
         <div class="modal-actions">
           <button class="btn ghost" onclick="closeModal()">Cancelar</button>
           <button class="btn primary" onclick="confirmarSaldoRappi()">Guardar saldo</button>
@@ -1442,27 +953,18 @@ function confirmarSaldoRappi(){
   const deuda = data.deudas.find(item => item.id === 'd_rappi');
   if(!deuda) return;
   const saldo = Number(document.getElementById('rappi-saldo').value);
-  if(!Number.isFinite(saldo) || saldo < 0){
-    alert('Ingresa un saldo válido igual o mayor que cero.');
-    return;
-  }
+  if(!Number.isFinite(saldo) || saldo < 0){ alert('Ingresa un saldo válido.'); return; }
+
   const saldoAnterior = Number(deuda.saldoActual) || 0;
-  const hoy = toISO(new Date());
   deuda.saldoActual = saldo;
-  deuda.saldoInicial = Math.max(Number(deuda.saldoInicial) || 0, saldo);
-  deuda.fechaUltimaActualizacion = hoy;
-  deuda.activo = true;
+  deuda.fechaUltimaActualizacion = toISO(new Date());
   deuda.historialPagos = deuda.historialPagos || [];
   deuda.historialPagos.push({
-    id: uid('m'),
-    fecha: hoy,
-    tipo: 'ajuste_saldo',
-    monto: Math.abs(saldo - saldoAnterior),
+    id: uid('m'), fecha: toISO(new Date()), tipo: 'ajuste_saldo', monto: Math.abs(saldo - saldoAnterior),
     nota: `Saldo actualizado de ${fmt(saldoAnterior)} a ${fmt(saldo)}`
   });
-  saveData();
-  closeModal();
-  render();
+
+  saveData(); closeModal(); render();
 }
 
 function closeModal(){ document.getElementById('modal-root').innerHTML = ''; }
@@ -1471,6 +973,7 @@ window.addEventListener('focus', () => { calcularInteresDiarioAcumulado(); rende
 document.addEventListener('visibilitychange', () => {
   if(!document.hidden){ calcularInteresDiarioAcumulado(); render(); }
 });
+
 loadData();
 </script>
 </body>
