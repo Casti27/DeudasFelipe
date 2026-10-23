@@ -311,11 +311,15 @@ function initialBaseData(){
   };
 }
 
+function esMovimientoEnCuotas(movimiento){
+  return (movimiento.tipo === 'retiro' || movimiento.tipo === 'compra') &&
+    Number.isInteger(Number(movimiento.cuotasTotales)) &&
+    Number(movimiento.cuotasTotales) > 0;
+}
+
 function migrarSaldoBaseCuotas(deuda){
   const historial = Array.isArray(deuda.historialPagos) ? deuda.historialPagos : [];
-  const retirosEnCuotas = historial.filter(movimiento =>
-    movimiento.tipo === 'retiro' && Number.isInteger(Number(movimiento.cuotasTotales)) && Number(movimiento.cuotasTotales) > 0
-  );
+  const retirosEnCuotas = historial.filter(esMovimientoEnCuotas);
   if(deuda.tipo !== 'tarjeta' || !retirosEnCuotas.length || deuda.saldoBaseCuotas !== undefined) return {};
 
   const primerRetiro = [...retirosEnCuotas].sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')))[0];
@@ -348,7 +352,7 @@ function normalizeData(raw){
       const deudaConBase = { ...normalizada, ...migrarSaldoBaseCuotas(normalizada) };
       if(deudaConBase.id === 'd_rappi'){
         const retirosEnCuotas = deudaConBase.historialPagos.filter(movimiento =>
-          movimiento.tipo === 'retiro' && Number.isInteger(Number(movimiento.cuotasTotales)) && Number(movimiento.cuotasTotales) > 0 && movimiento.fecha
+          esMovimientoEnCuotas(movimiento) && movimiento.fecha
         );
         if(retirosEnCuotas.length){
           const primerRetiro = retirosEnCuotas.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))[0];
@@ -452,7 +456,7 @@ function cuotasTarjetaParaPeriodo(deuda, periodo){
   const mesPago = periodo.fin.getFullYear() * 12 + periodo.fin.getMonth();
   return deuda.historialPagos.reduce((total, movimiento) => {
     const cuotas = Number(movimiento.cuotasTotales);
-    if(movimiento.tipo !== 'retiro' || !Number.isInteger(cuotas) || cuotas < 1) return total;
+    if(!esMovimientoEnCuotas(movimiento) || !Number.isInteger(cuotas) || cuotas < 1) return total;
 
     const fechaMovimiento = movimiento.fecha ? parseDate(movimiento.fecha) : null;
     if(!movimiento.fechaPrimeraCuota && !fechaMovimiento) return total;
@@ -487,7 +491,7 @@ function getPagosQuincena(periodo){
     const pagoDia = Number(periodo.pagaEl);
     const correspondeQuincena = deuda.quincenaPago === 'ambas' || Number(deuda.quincenaPago) === pagoDia;
     const retirosEnCuotas = deuda.tipo === 'tarjeta'
-      ? deuda.historialPagos.filter(m => m.tipo === 'retiro' && Number.isInteger(Number(m.cuotasTotales)) && Number(m.cuotasTotales) > 0)
+      ? deuda.historialPagos.filter(esMovimientoEnCuotas)
       : [];
 
     if(retirosEnCuotas.length){
