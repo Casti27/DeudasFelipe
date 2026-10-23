@@ -414,11 +414,59 @@ function getQuincenasOrdenadas(hoy){
 
 function enRango(iso, inicio, fin){ const d = parseDate(iso); return d >= inicio && d <= fin; }
 
+function cuotasTarjetaParaPeriodo(deuda, periodo){
+  const mesPago = periodo.fin.getFullYear() * 12 + periodo.fin.getMonth();
+  return deuda.historialPagos.reduce((total, movimiento) => {
+    const cuotas = Number(movimiento.cuotasTotales);
+    if(movimiento.tipo !== 'retiro' || !Number.isInteger(cuotas) || cuotas < 1) return total;
+
+    const fechaMovimiento = movimiento.fecha ? parseDate(movimiento.fecha) : null;
+    if(!movimiento.fechaPrimeraCuota && !fechaMovimiento) return total;
+    const primeraCuota = movimiento.fechaPrimeraCuota
+      ? parseDate(movimiento.fechaPrimeraCuota)
+      : new Date(fechaMovimiento.getFullYear(), fechaMovimiento.getMonth() + 1, 1);
+    const indiceCuota = mesPago - (primeraCuota.getFullYear() * 12 + primeraCuota.getMonth());
+    if(indiceCuota < 0 || indiceCuota >= cuotas) return total;
+
+    const monto = Number(movimiento.monto) || 0;
+    const cuotaBase = Math.floor(monto / cuotas);
+    const valorCuota = indiceCuota === cuotas - 1 ? monto - cuotaBase * (cuotas - 1) : cuotaBase;
+    return total + valorCuota;
+  }, 0);
+}
+
 function getPagosQuincena(periodo){
   const detalles = [];
   data.deudas.filter(deuda => deuda.activo && Number(deuda.saldoActual) > 0).forEach(deuda => {
     const pagoDia = Number(periodo.pagaEl);
     const correspondeQuincena = deuda.quincenaPago === 'ambas' || Number(deuda.quincenaPago) === pagoDia;
+    const retirosEnCuotas = deuda.tipo === 'tarjeta'
+      ? deuda.historialPagos.filter(m => m.tipo === 'retiro' && Number.isInteger(Number(m.cuotasTotales)) && Number(m.cuotasTotales) > 0)
+      : [];
+
+    if(retirosEnCuotas.length){
+      if(!correspondeQuincena) return;
+      const cuotaMes = cuotasTarjetaParaPeriodo(deuda, periodo);
+      if(cuotaMes <= 0) return;
+      const pagosDelPeriodo = deuda.historialPagos.reduce((total, movimiento) => {
+        if(!movimiento.fecha || !(movimiento.tipo === 'pago' || movimiento.pago > 0) ||
+          !enRango(movimiento.fecha, periodo.inicio, periodo.fin)) return total;
+        return total + (Number(movimiento.monto || movimiento.pago) || 0);
+      }, 0);
+      const montoPagado = Math.min(cuotaMes, pagosDelPeriodo);
+      detalles.push({
+        id: deuda.id,
+        nombre: `${deuda.nombre} · cuotas del mes`,
+        cuota: cuotaMes,
+        pagado: montoPagado >= cuotaMes,
+        montoPagado,
+        pendiente: Math.max(0, cuotaMes - montoPagado),
+        tarjeta: true,
+        gasto: false
+      });
+      return;
+    }
+
     const pagoAsignado = deuda.tipo === 'tarjeta' && correspondeQuincena
       ? Number(deuda.saldoActual) || 0
       : deuda.quincenaPago === 'ambas'
@@ -437,6 +485,7 @@ function getPagosQuincena(periodo){
       nombre: deuda.nombre,
       cuota: pagoAsignado,
       pagado: pagado,
+      montoPagado: pagado ? pagoAsignado : 0,
       pendiente: pagado ? 0 : pagoAsignado,
       tarjeta: deuda.tipo === 'tarjeta',
       gasto: false
@@ -451,6 +500,7 @@ function getPagosQuincena(periodo){
       nombre: gasto.nota || gasto.categoria || 'Gasto fijo',
       cuota: monto,
       pagado: false,
+      montoPagado: 0,
       pendiente: monto,
       tarjeta: false,
       gasto: true
@@ -460,7 +510,7 @@ function getPagosQuincena(periodo){
   return {
     detalles,
     total: detalles.reduce((total, detalle) => total + detalle.cuota, 0),
-    pagado: detalles.reduce((total, detalle) => total + (detalle.pagado ? detalle.cuota : 0), 0),
+    pagado: detalles.reduce((total, detalle) => total + detalle.montoPagado, 0),
     pendiente: detalles.reduce((total, detalle) => total + detalle.pendiente, 0)
   };
 }
@@ -541,7 +591,10 @@ function renderDebtCard(deuda){
           const tipo = mov.tipo || (mov.pago ? 'pago' : (mov.compra ? 'compra' : 'retiro'));
           const pago = tipo === 'pago';
           const valor = Number(mov.monto || mov.pago) || 0;
-          const detalle = mov.nota ? ` · ${escapeHtml(mov.nota)}` : '';
+          const detalleCuotas = Number.isInteger(Number(mov.cuotasTotales)) && Number(mov.cuotasTotales) > 0
+            ? ` · ${mov.cuotasTotales} cuotas`
+            : '';
+          const detalle = `${detalleCuotas}${mov.nota ? ` · ${escapeHtml(mov.nota)}` : ''}`;
           const titulo = pago ? 'Abono realizado' : (tipo === 'compra' ? 'Compra con crédito' : 'Nuevo retiro');
           return `<div class="txn-row">
             <div><div class="txn-desc">${titulo}</div><div class="txn-meta">${fechaLabel(mov.fecha)}${detalle}</div></div>
@@ -617,7 +670,7 @@ function viewResumen(){
           ${pagos.detalles.length ? pagos.detalles.map(detalle => {
             const esPagado = detalle.pagado;
             return `<div class="pay-period-line ${esPagado ? 'pagado' : ''}">
-              <span>${escapeHtml(detalle.nombre)}${detalle.gasto ? ' · gasto fijo' : esPagado ? ' · pagado' : ''}</span>
+              <span>${escapeHtml(detalle.nombre)}${detalle.gasto ? ' · gasto fijo' : esPagado ? ' · pagado' : detalle.montoPagado ? ` · abonado ${fmt(detalle.montoPagado)}` : ''}</span>
               <strong>${fmt(detalle.cuota)}</strong>
             </div>`;
           }).join('') : '<div class="pay-period-line"><span>No hay cuotas configuradas para esta quincena</span><strong>$0</strong></div>'}
@@ -663,7 +716,7 @@ function viewDeudas(){
       <div><h2 class="section-title">Créditos activos</h2><div class="section-note">${activas.length} obligaciones en seguimiento</div></div>
       <button class="btn primary small" onclick="openDeudaForm()">+ Nuevo</button>
     </div>
-    <div class="summary-banner">Los retiros aumentan el saldo y los pagos lo reducen. La tasa se acumula día a día sin que tengas que actualizar el valor manualmente.</div>
+    <div class="summary-banner">Los retiros aumentan el saldo y los pagos lo reducen. En tarjetas con retiros registrados en cuotas, el resumen muestra esas cuotas mensuales y no el saldo completo; las compras anteriores que no tengan cuotas registradas no se incluyen en ese cálculo. La tasa se acumula día a día sin que tengas que actualizar el valor manualmente.</div>
     ${activas.length ? activas.map(renderDebtCard).join('') : '<div class="empty">No tienes créditos activos. Agrega uno para empezar.</div>'}
     ${data.deudas.some(deuda => !deuda.activo) ? `<div class="section-head"><div><h2 class="section-title">Créditos inactivos</h2></div></div>${data.deudas.filter(deuda => !deuda.activo).map(renderDebtCard).join('')}` : ''}`;
 }
@@ -879,7 +932,11 @@ function registrarMovimientoDeuda(id, tipo){
         <h3>${esPago ? 'Registrar pago' : 'Registrar retiro'}</h3>
         <p class="modal-sub">${escapeHtml(deuda.nombre)} · Saldo actual ${fmt(deuda.saldoActual)}</p>
         <label>Valor ($)</label>
-        <input type="number" id="mov-deuda-monto" min="1" step="1" value="${esPago ? Math.min(Number(deuda.cuotaValor) || Number(deuda.saldoActual), Number(deuda.saldoActual)) : ''}" placeholder="0">
+        <input type="number" id="mov-deuda-monto" min="1" step="1" value="${esPago ? Math.min(Number(deuda.cuotaValor) || Number(deuda.saldoActual), Number(deuda.saldoActual)) : ''}" oninput="actualizarPreviewCuotas()" placeholder="0">
+        ${!esPago && deuda.tipo === 'tarjeta' ? `
+        <label for="mov-deuda-cuotas">Número de cuotas</label>
+        <input type="number" id="mov-deuda-cuotas" min="1" max="60" step="1" value="1" oninput="actualizarPreviewCuotas()" placeholder="1">
+        <div class="hint" id="mov-deuda-cuotas-preview">La primera cuota se pagará el próximo mes. El cálculo no incluye intereses o cargos de la entidad; la última cuota se ajusta por redondeo.</div>` : ''}
         <label>Fecha del movimiento</label>
         <input type="date" id="mov-deuda-fecha" value="${toISO(new Date())}">
         <label>Detalle (opcional)</label>
@@ -890,23 +947,51 @@ function registrarMovimientoDeuda(id, tipo){
         </div>
       </div>
     </div>`;
+  actualizarPreviewCuotas();
+}
+
+function actualizarPreviewCuotas(){
+  const montoInput = document.getElementById('mov-deuda-monto');
+  const cuotasInput = document.getElementById('mov-deuda-cuotas');
+  const preview = document.getElementById('mov-deuda-cuotas-preview');
+  if(!montoInput || !cuotasInput || !preview) return;
+  const monto = Number(montoInput.value);
+  const cuotas = Number(cuotasInput.value);
+  if(!Number.isFinite(monto) || monto <= 0 || !Number.isInteger(cuotas) || cuotas < 1 || cuotas > 60){
+    preview.textContent = 'Ingresa el valor del retiro y un número de cuotas entre 1 y 60.';
+    return;
+  }
+  preview.textContent = `Cuota mensual aproximada: ${fmt(Math.floor(monto / cuotas))}. La primera cuota se pagará el próximo mes; la última se ajusta por redondeo. No incluye intereses o cargos de la entidad.`;
 }
 
 function confirmarMovimientoDeuda(id, tipo){
   const deuda = data.deudas.find(item => item.id === id);
   if(!deuda) return;
   const monto = Number(document.getElementById('mov-deuda-monto').value);
-  const fecha = document.getElementById('mov-deuda-fecha').value;
+  const fecha = document.getElementById('mov-deuda-fecha').value || toISO(new Date());
   const nota = document.getElementById('mov-deuda-nota').value.trim();
   const hoy = toISO(new Date());
 
   if(!Number.isFinite(monto) || monto <= 0){ alert('Ingresa un valor mayor que cero.'); return; }
 
   const pago = tipo === 'pago';
+  const cuotasInput = document.getElementById('mov-deuda-cuotas');
+  const cuotas = cuotasInput ? Number(cuotasInput.value) : null;
+  if(cuotasInput && (!Number.isInteger(cuotas) || cuotas < 1 || cuotas > 60)){
+    alert('Ingresa un número de cuotas entre 1 y 60.');
+    return;
+  }
+
   deuda.saldoActual = Math.max(0, Number(deuda.saldoActual || 0) + (pago ? -monto : monto));
   deuda.fechaUltimaActualizacion = hoy;
   deuda.historialPagos = deuda.historialPagos || [];
-  deuda.historialPagos.push({ id: uid('m'), fecha, tipo: pago ? 'pago' : 'retiro', monto, nota });
+  const movimiento = { id: uid('m'), fecha, tipo: pago ? 'pago' : 'retiro', monto, nota };
+  if(!pago && cuotasInput){
+    const fechaMovimiento = parseDate(fecha);
+    movimiento.cuotasTotales = cuotas;
+    movimiento.fechaPrimeraCuota = toISO(new Date(fechaMovimiento.getFullYear(), fechaMovimiento.getMonth() + 1, 1));
+  }
+  deuda.historialPagos.push(movimiento);
 
   saveData(); closeModal(); render();
 }
