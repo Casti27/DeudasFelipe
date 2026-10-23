@@ -311,6 +311,26 @@ function initialBaseData(){
   };
 }
 
+function migrarSaldoBaseCuotas(deuda){
+  const historial = Array.isArray(deuda.historialPagos) ? deuda.historialPagos : [];
+  const retirosEnCuotas = historial.filter(movimiento =>
+    movimiento.tipo === 'retiro' && Number.isInteger(Number(movimiento.cuotasTotales)) && Number(movimiento.cuotasTotales) > 0
+  );
+  if(deuda.tipo !== 'tarjeta' || !retirosEnCuotas.length || deuda.saldoBaseCuotas !== undefined) return {};
+
+  const primerRetiro = [...retirosEnCuotas].sort((a, b) => String(a.fecha || '').localeCompare(String(b.fecha || '')))[0];
+  if(!primerRetiro.fecha) return {};
+  const pagosPosteriores = historial.reduce((total, movimiento) => {
+    if(String(movimiento.fecha || '') < primerRetiro.fecha || !(movimiento.tipo === 'pago' || movimiento.pago > 0)) return total;
+    return total + (Number(movimiento.monto || movimiento.pago) || 0);
+  }, 0);
+  const retirosRegistrados = retirosEnCuotas.reduce((total, movimiento) => total + (Number(movimiento.monto) || 0), 0);
+  return {
+    saldoBaseCuotas: Math.max(0, (Number(deuda.saldoActual) || 0) + pagosPosteriores - retirosRegistrados),
+    fechaInicioBaseCuotas: primerRetiro.fecha
+  };
+}
+
 function normalizeData(raw){
   const base = initialBaseData();
   const next = raw && typeof raw === 'object' ? raw : {};
@@ -320,10 +340,24 @@ function normalizeData(raw){
     config: { ...base.config, ...(next.config || {}) },
     ingresos: Array.isArray(next.ingresos) ? next.ingresos : base.ingresos,
     gastos: (Array.isArray(next.gastos) ? next.gastos : base.gastos).filter(g => g.id !== 'g_plan_datos'),
-    deudas: (Array.isArray(next.deudas) ? next.deudas : base.deudas).map(deuda => ({
-      ...deuda,
-      historialPagos: Array.isArray(deuda.historialPagos) ? deuda.historialPagos : []
-    })),
+    deudas: (Array.isArray(next.deudas) ? next.deudas : base.deudas).map(deuda => {
+      const normalizada = {
+        ...deuda,
+        historialPagos: Array.isArray(deuda.historialPagos) ? deuda.historialPagos : []
+      };
+      const deudaConBase = { ...normalizada, ...migrarSaldoBaseCuotas(normalizada) };
+      if(deudaConBase.id === 'd_rappi'){
+        const retirosEnCuotas = deudaConBase.historialPagos.filter(movimiento =>
+          movimiento.tipo === 'retiro' && Number.isInteger(Number(movimiento.cuotasTotales)) && Number(movimiento.cuotasTotales) > 0 && movimiento.fecha
+        );
+        if(retirosEnCuotas.length){
+          const primerRetiro = retirosEnCuotas.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))[0];
+          deudaConBase.saldoBaseCuotas = 567463;
+          deudaConBase.fechaInicioBaseCuotas = primerRetiro.fecha;
+        }
+      }
+      return deudaConBase;
+    }),
     saldoAcumuladoAnterior: Number(next.saldoAcumuladoAnterior || 0),
     migrations: Array.isArray(next.migrations) ? next.migrations : []
   };
@@ -435,6 +469,18 @@ function cuotasTarjetaParaPeriodo(deuda, periodo){
   }, 0);
 }
 
+function saldoBaseTarjetaParaPeriodo(deuda, periodo){
+  const saldoBase = Number(deuda.saldoBaseCuotas) || 0;
+  const fechaInicio = deuda.fechaInicioBaseCuotas;
+  if(saldoBase <= 0 || !fechaInicio) return 0;
+  const pagosAnteriores = deuda.historialPagos.reduce((total, movimiento) => {
+    if(!movimiento.fecha || movimiento.fecha < fechaInicio || parseDate(movimiento.fecha) >= periodo.inicio ||
+      !(movimiento.tipo === 'pago' || movimiento.pago > 0)) return total;
+    return total + (Number(movimiento.monto || movimiento.pago) || 0);
+  }, 0);
+  return Math.max(0, saldoBase - pagosAnteriores);
+}
+
 function getPagosQuincena(periodo){
   const detalles = [];
   data.deudas.filter(deuda => deuda.activo && Number(deuda.saldoActual) > 0).forEach(deuda => {
@@ -447,20 +493,23 @@ function getPagosQuincena(periodo){
     if(retirosEnCuotas.length){
       if(!correspondeQuincena) return;
       const cuotaMes = cuotasTarjetaParaPeriodo(deuda, periodo);
-      if(cuotaMes <= 0) return;
+      const saldoBase = saldoBaseTarjetaParaPeriodo(deuda, periodo);
+      if(cuotaMes <= 0 && saldoBase <= 0) return;
       const pagosDelPeriodo = deuda.historialPagos.reduce((total, movimiento) => {
-        if(!movimiento.fecha || !(movimiento.tipo === 'pago' || movimiento.pago > 0) ||
+        if(!movimiento.fecha || movimiento.fecha < (deuda.fechaInicioBaseCuotas || '') ||
+          !(movimiento.tipo === 'pago' || movimiento.pago > 0) ||
           !enRango(movimiento.fecha, periodo.inicio, periodo.fin)) return total;
         return total + (Number(movimiento.monto || movimiento.pago) || 0);
       }, 0);
-      const montoPagado = Math.min(cuotaMes, pagosDelPeriodo);
+      const montoProgramado = saldoBase + cuotaMes;
+      const montoPagado = Math.min(montoProgramado, pagosDelPeriodo);
       detalles.push({
         id: deuda.id,
-        nombre: `${deuda.nombre} · cuotas del mes`,
-        cuota: cuotaMes,
-        pagado: montoPagado >= cuotaMes,
+        nombre: `${deuda.nombre} · saldo anterior y cuotas del mes`,
+        cuota: montoProgramado,
+        pagado: montoPagado >= montoProgramado,
         montoPagado,
-        pendiente: Math.max(0, cuotaMes - montoPagado),
+        pendiente: Math.max(0, montoProgramado - montoPagado),
         tarjeta: true,
         gasto: false
       });
@@ -716,7 +765,7 @@ function viewDeudas(){
       <div><h2 class="section-title">Créditos activos</h2><div class="section-note">${activas.length} obligaciones en seguimiento</div></div>
       <button class="btn primary small" onclick="openDeudaForm()">+ Nuevo</button>
     </div>
-    <div class="summary-banner">Los retiros aumentan el saldo y los pagos lo reducen. En tarjetas con retiros registrados en cuotas, el resumen muestra esas cuotas mensuales y no el saldo completo; las compras anteriores que no tengan cuotas registradas no se incluyen en ese cálculo. La tasa se acumula día a día sin que tengas que actualizar el valor manualmente.</div>
+    <div class="summary-banner">Los retiros aumentan el saldo y los pagos lo reducen. Para tarjetas con retiros en cuotas, el resumen suma el saldo anterior estimado y las cuotas del mes; el saldo total de la tarjeta se conserva en Créditos. La tasa se acumula día a día sin que tengas que actualizar el valor manualmente.</div>
     ${activas.length ? activas.map(renderDebtCard).join('') : '<div class="empty">No tienes créditos activos. Agrega uno para empezar.</div>'}
     ${data.deudas.some(deuda => !deuda.activo) ? `<div class="section-head"><div><h2 class="section-title">Créditos inactivos</h2></div></div>${data.deudas.filter(deuda => !deuda.activo).map(renderDebtCard).join('')}` : ''}`;
 }
@@ -988,6 +1037,10 @@ function confirmarMovimientoDeuda(id, tipo){
   const movimiento = { id: uid('m'), fecha, tipo: pago ? 'pago' : 'retiro', monto, nota };
   if(!pago && cuotasInput){
     const fechaMovimiento = parseDate(fecha);
+    if(deuda.saldoBaseCuotas === undefined){
+      deuda.saldoBaseCuotas = Number(deuda.saldoActual) || 0;
+      deuda.fechaInicioBaseCuotas = fecha;
+    }
     movimiento.cuotasTotales = cuotas;
     movimiento.fechaPrimeraCuota = toISO(new Date(fechaMovimiento.getFullYear(), fechaMovimiento.getMonth() + 1, 1));
   }
