@@ -114,6 +114,25 @@
   .pay-period-line.pagado span:first-child { color: var(--accent); font-weight: 650; }
   .pay-period-line.pagado strong { color: var(--accent); }
   .pay-period-line strong { white-space: nowrap; }
+  .simulator-card { padding: 18px; border-color: #e2ebe7; background: linear-gradient(145deg, #fff 0%, #f8fbf9 100%); }
+  .simulator-heading { display: flex; align-items: center; gap: 11px; margin-bottom: 15px; }
+  .simulator-icon { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; border-radius: 12px; background: var(--accent-soft); color: var(--accent); font-size: 17px; }
+  .simulator-title { margin: 0; font-size: 14px; font-weight: 700; }
+  .simulator-description { margin: 3px 0 0; color: var(--ink-soft); font-size: 11px; line-height: 1.4; }
+  .simulator-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  .simulator-fields .simulator-payment { grid-column: 1 / -1; }
+  .simulator-card label { margin-top: 10px; }
+  .simulator-card input { min-height: 42px; background: #fff; }
+  .scenario-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+  .scenario-card { padding: 12px; border: 1px solid var(--line); border-radius: 13px; background: #fff; }
+  .scenario-date { color: var(--ink-soft); font-size: 10px; font-weight: 650; }
+  .scenario-row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; margin-top: 10px; font-size: 11px; }
+  .scenario-row span { color: var(--ink-soft); }
+  .scenario-row strong { text-align: right; }
+  .scenario-row.remaining { padding-top: 9px; border-top: 1px solid var(--line); }
+  .scenario-row.remaining strong { color: var(--accent); font-size: 13px; }
+  .scenario-row.remaining strong.shortfall { color: var(--bad); }
+  .simulator-hint { margin-top: 12px; }
   @media (max-width: 520px) {
     .header { padding: 20px 18px 12px; }
     main { padding: 8px 16px 108px; }
@@ -124,6 +143,7 @@
     .metric-value { font-size: 11px; }
     .fab { right: 18px; }
     .pay-period-grid { grid-template-columns: 1fr; }
+    .scenario-grid { grid-template-columns: 1fr; }
   }
 </style>
 </head>
@@ -153,6 +173,13 @@
 
 <script>
 const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_5_octubre';
+const RAPPI_ALEXA_MIGRATION = 'rappicard-alexa-h2o-installments';
+const ADDI_PAYDAY_MIGRATION = 'addi-payday-fifth';
+const COLSUB_BALANCE_MIGRATION = 'colsub-balance-1238194';
+const RAPPI_ALEXA_AMOUNT = 282229;
+const RAPPI_ALEXA_BASE_BALANCE = 563463;
+const RAPPI_ALEXA_TOTAL_BALANCE = 845692;
+const COLSUB_CURRENT_BALANCE = 1238194;
 let currentTab = 'resumen';
 let data = null;
 let openDeudaHistorialId = null;
@@ -166,7 +193,10 @@ function initialBaseData(){
     saldoAcumuladoAnterior: 0,
     config: {
       diasPago: [5, 20],
-      moneda: 'COP'
+      moneda: 'COP',
+      ingresoQuincena5: 1400000,
+      ingresoQuincena20: 1090000,
+      abonoBdbSimulado: 1000000
     },
     ingresos: [],
     gastos: [
@@ -198,7 +228,7 @@ function initialBaseData(){
         nombre: 'Colsubsidio (Cupo de crédito)',
         tipo: 'revolvente',
         saldoInicial: 1061478,
-        saldoActual: 1230064,
+        saldoActual: COLSUB_CURRENT_BALANCE,
         tasaInteresMensual: 2.13,
         tasaMoraMensual: 2.16,
         cuotaValor: 90321,
@@ -243,7 +273,7 @@ function initialBaseData(){
         cuotaValor: 95820,
         cuotasTotales: 2,
         cuotasPagadas: 1,
-        quincenaPago: 20,
+        quincenaPago: 5,
         corteDia: 16,
         activo: true,
         fechaUltimaActualizacion: hoyISO,
@@ -338,7 +368,7 @@ function migrarSaldoBaseCuotas(deuda){
 function normalizeData(raw){
   const base = initialBaseData();
   const next = raw && typeof raw === 'object' ? raw : {};
-  return {
+  const normalized = {
     ...base,
     ...next,
     config: { ...base.config, ...(next.config || {}) },
@@ -350,21 +380,54 @@ function normalizeData(raw){
         historialPagos: Array.isArray(deuda.historialPagos) ? deuda.historialPagos : []
       };
       const deudaConBase = { ...normalizada, ...migrarSaldoBaseCuotas(normalizada) };
-      if(deudaConBase.id === 'd_rappi'){
-        const retirosEnCuotas = deudaConBase.historialPagos.filter(movimiento =>
-          esMovimientoEnCuotas(movimiento) && movimiento.fecha
-        );
-        if(retirosEnCuotas.length){
-          const primerRetiro = retirosEnCuotas.sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))[0];
-          deudaConBase.saldoBaseCuotas = 567463;
-          deudaConBase.fechaInicioBaseCuotas = primerRetiro.fecha;
-        }
-      }
       return deudaConBase;
     }),
     saldoAcumuladoAnterior: Number(next.saldoAcumuladoAnterior || 0),
     migrations: Array.isArray(next.migrations) ? next.migrations : []
   };
+
+  if(!normalized.migrations.includes(RAPPI_ALEXA_MIGRATION)){
+    const rappi = normalized.deudas.find(deuda => deuda.id === 'd_rappi');
+    if(rappi){
+      let compra = rappi.historialPagos.find(movimiento =>
+        Number(movimiento.monto) === RAPPI_ALEXA_AMOUNT && (movimiento.tipo === 'compra' || movimiento.tipo === 'retiro')
+      );
+      if(!compra){
+        compra = {
+          id: uid('m'),
+          fecha: '2026-10-23',
+          tipo: 'compra',
+          monto: RAPPI_ALEXA_AMOUNT,
+          nota: 'Alexa H2O'
+        };
+        rappi.historialPagos.push(compra);
+      }
+      compra.tipo = 'compra';
+      compra.nota = 'Alexa H2O';
+      compra.cuotasTotales = 3;
+      compra.fechaPrimeraCuota = compra.fechaPrimeraCuota || '2026-11-01';
+      rappi.saldoActual = RAPPI_ALEXA_TOTAL_BALANCE;
+      rappi.saldoBaseCuotas = RAPPI_ALEXA_BASE_BALANCE;
+      rappi.fechaInicioBaseCuotas = compra.fecha || '2026-10-23';
+      normalized.migrations.push(RAPPI_ALEXA_MIGRATION);
+    }
+  }
+  if(!normalized.migrations.includes(ADDI_PAYDAY_MIGRATION)){
+    const addi = normalized.deudas.find(deuda => deuda.id === 'd_addi');
+    if(addi){
+      addi.quincenaPago = 5;
+      normalized.migrations.push(ADDI_PAYDAY_MIGRATION);
+    }
+  }
+  if(!normalized.migrations.includes(COLSUB_BALANCE_MIGRATION)){
+    const colsub = normalized.deudas.find(deuda => deuda.id === 'd_colsub');
+    if(colsub){
+      colsub.saldoActual = COLSUB_CURRENT_BALANCE;
+      colsub.fechaUltimaActualizacion = toISO(new Date());
+      normalized.migrations.push(COLSUB_BALANCE_MIGRATION);
+    }
+  }
+  return normalized;
 }
 
 function loadData(){
@@ -620,6 +683,10 @@ function plazoLabel(deuda){
   const meses = mesesParaPagar(deuda);
   if(meses === 0) return 'Pagado';
   if(meses === null || !Number.isFinite(meses)) return 'Cuota insuficiente';
+  return mesesLabel(meses);
+}
+
+function mesesLabel(meses){
   if(meses < 12) return `${meses} ${meses === 1 ? 'mes' : 'meses'}`;
   const anios = Math.floor(meses / 12);
   const restantes = meses % 12;
@@ -629,6 +696,22 @@ function plazoLabel(deuda){
 function fechaLabel(iso){
   if(!iso) return '';
   return parseDate(iso).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function cuotasRestantesLabel(movimiento){
+  const total = Number(movimiento.cuotasTotales);
+  if(!Number.isInteger(total) || total < 1) return '';
+  const fechaInicio = movimiento.fechaPrimeraCuota
+    ? parseDate(movimiento.fechaPrimeraCuota)
+    : movimiento.fecha ? new Date(parseDate(movimiento.fecha).getFullYear(), parseDate(movimiento.fecha).getMonth() + 1, 1) : null;
+  if(!fechaInicio) return `${total} cuotas`;
+  const hoy = new Date();
+  const mesesDesdeInicio = Math.max(0, (hoy.getFullYear() - fechaInicio.getFullYear()) * 12 + hoy.getMonth() - fechaInicio.getMonth());
+  const restantes = Math.max(0, total - mesesDesdeInicio);
+  const proxima = Math.min(total, mesesDesdeInicio + 1);
+  return restantes
+    ? `Cuota ${proxima} de ${total} · ${restantes} ${restantes === 1 ? 'cuota pendiente' : 'cuotas pendientes'}`
+    : `${total} de ${total} cuotas cumplidas según calendario`;
 }
 
 function renderDebtCard(deuda){
@@ -644,11 +727,9 @@ function renderDebtCard(deuda){
           const tipo = mov.tipo || (mov.pago ? 'pago' : (mov.compra ? 'compra' : 'retiro'));
           const pago = tipo === 'pago';
           const valor = Number(mov.monto || mov.pago) || 0;
-          const detalleCuotas = Number.isInteger(Number(mov.cuotasTotales)) && Number(mov.cuotasTotales) > 0
-            ? ` · ${mov.cuotasTotales} cuotas`
-            : '';
-          const detalle = `${detalleCuotas}${mov.nota ? ` · ${escapeHtml(mov.nota)}` : ''}`;
-          const titulo = pago ? 'Abono realizado' : (tipo === 'compra' ? 'Compra con crédito' : 'Nuevo retiro');
+          const cuotasPendientes = cuotasRestantesLabel(mov);
+          const detalle = `${cuotasPendientes ? ` · ${cuotasPendientes}` : ''}${mov.nota && tipo !== 'compra' ? ` · ${escapeHtml(mov.nota)}` : ''}`;
+          const titulo = pago ? 'Abono realizado' : (tipo === 'compra' ? `Compra: ${escapeHtml(mov.nota || 'con crédito')}` : 'Nuevo retiro');
           return `<div class="txn-row">
             <div><div class="txn-desc">${titulo}</div><div class="txn-meta">${fechaLabel(mov.fecha)}${detalle}</div></div>
             <div class="txn-value ${pago ? 'down' : 'up'}">${pago ? '−' : '+'} ${fmt(valor)}</div>
@@ -738,16 +819,47 @@ function viewResumen(){
     <div class="summary-banner">El interés se estima diariamente usando la tasa mensual MV registrada. Las proyecciones dependen de que mantengas la cuota mensual indicada.</div>`;
 }
 
+function actualizarEscenarioQuincena(){
+  const abonoInput = document.getElementById('simulador-abono-bdb');
+  if(!abonoInput) return;
+  const abonoBdb = Math.max(0, Number(abonoInput.value) || 0);
+  const ingreso5Input = document.getElementById('simulador-ingreso-5');
+  const ingreso20Input = document.getElementById('simulador-ingreso-20');
+  data.config.abonoBdbSimulado = abonoBdb;
+  data.config.ingresoQuincena5 = Math.max(0, Number(ingreso5Input.value) || 0);
+  data.config.ingresoQuincena20 = Math.max(0, Number(ingreso20Input.value) || 0);
+  saveData();
+  document.querySelectorAll('.scenario-quincena').forEach(escenario => {
+    const dia = Number(escenario.dataset.dia);
+    const base = Number(escenario.dataset.base) || 0;
+    const aplicaAbonoBdb = escenario.dataset.aplicaBdb === 'true';
+    const total = base + (aplicaAbonoBdb ? abonoBdb : 0);
+    const ingresoInput = document.getElementById(`simulador-ingreso-${dia}`);
+    const ingreso = ingresoInput ? Math.max(0, Number(ingresoInput.value) || 0) : 0;
+    const totalElement = document.getElementById(`escenario-total-${dia}`);
+    const restanteElement = document.getElementById(`escenario-restante-${dia}`);
+    if(totalElement) totalElement.textContent = fmt(total);
+    if(restanteElement){
+      restanteElement.textContent = fmt(ingreso - total);
+      restanteElement.classList.toggle('shortfall', ingreso < total);
+      const label = restanteElement.parentElement.querySelector('span');
+      if(label) label.textContent = ingreso >= total ? 'Te queda' : 'Te faltaría';
+    }
+  });
+}
+
 function viewMovimientos(){
   const todos = [
     ...data.ingresos.map(i => ({...i, tipo:'ingreso'})),
     ...data.gastos.map(g => ({...g, tipo:'gasto'}))
   ].sort((a,b) => b.fecha.localeCompare(a.fecha));
 
-  if(todos.length === 0){
-    return `<div class="empty">No hay gastos o ingresos adicionales.<br>Toca "+" para registrar un nuevo movimiento.</div>`;
-  }
-  return `<h2 class="section-title">Movimientos y Gastos</h2>` + todos.map(m => `
+  const rappi = data.deudas.find(deuda => deuda.id === 'd_rappi');
+  const movimientosRappi = rappi
+    ? [...rappi.historialPagos].filter(movimiento => movimiento.tipo !== 'saldo_inicial').sort((a, b) => String(b.fecha || '').localeCompare(String(a.fecha || '')))
+    : [];
+  const movimientosHtml = todos.length
+    ? todos.map(m => `
     <div class="item">
       <div class="item-top">
         <div>
@@ -760,7 +872,33 @@ function viewMovimientos(){
         </div>
       </div>
     </div>
-  `).join('');
+  `).join('')
+    : '<div class="empty">No hay gastos o ingresos adicionales.<br>Toca "+" para registrar un nuevo movimiento.</div>';
+  const movimientosRappiHtml = movimientosRappi.length
+    ? movimientosRappi.map(movimiento => {
+        const tipo = movimiento.tipo || (movimiento.pago ? 'pago' : 'retiro');
+        const esPago = tipo === 'pago';
+        const esCompra = tipo === 'compra';
+        const valor = Number(movimiento.monto || movimiento.pago) || 0;
+        const cuotas = cuotasRestantesLabel(movimiento);
+        const descripcion = esPago
+          ? 'Pago registrado'
+          : esCompra
+            ? `Compra: ${escapeHtml(movimiento.nota || 'Sin descripción')}`
+            : tipo === 'ajuste_saldo' ? 'Ajuste de saldo' : 'Retiro de tarjeta';
+        const meta = [fechaLabel(movimiento.fecha), cuotas, !esCompra && movimiento.nota ? escapeHtml(movimiento.nota) : ''].filter(Boolean).join(' · ');
+        return `<div class="txn-row">
+          <div><div class="txn-desc">${descripcion}</div><div class="txn-meta">${meta}</div></div>
+          <div class="txn-value ${esPago ? 'down' : 'up'}">${esPago ? '−' : '+'} ${fmt(valor)}</div>
+        </div>`;
+      }).join('')
+    : '<div class="empty">Todavía no hay compras ni pagos registrados en RappiCard.</div>';
+
+  return `<h2 class="section-title">Movimientos y gastos</h2>
+    <div class="section-head"><div><h2 class="section-title">Gastos e ingresos</h2><div class="section-note">Movimientos personales y gastos registrados</div></div></div>
+    ${movimientosHtml}
+    <div class="section-head"><div><h2 class="section-title">RappiCard</h2><div class="section-note">${rappi ? `Saldo total: ${fmt(rappi.saldoActual)}` : 'Historial de compras y pagos'}</div></div></div>
+    <div class="card"><div class="details-box" style="margin-top:0">${movimientosRappiHtml}</div></div>`;
 }
 
 function viewDeudas(){
@@ -776,7 +914,47 @@ function viewDeudas(){
 
 function viewAjustes(){
   const dias = diasPagoOrdenados();
+  const abonoBdbActual = Number(data.config.abonoBdbSimulado ?? 1000000);
+  const ingresosPorQuincena = {
+    5: Number(data.config.ingresoQuincena5 ?? 1400000),
+    20: Number(data.config.ingresoQuincena20 ?? 1090000)
+  };
+  const periodos = getQuincenasOrdenadas(new Date());
+  const quincenas = [periodos.q1, periodos.q2].map(periodo => ({
+    periodo,
+    pagos: getPagosQuincena(periodo)
+  }));
   return `
+    <div class="section-head" style="margin-top:8px">
+      <div><h2 class="section-title">Simulador de abono</h2><div class="section-note">Prueba el efecto en tu presupuesto quincenal</div></div>
+    </div>
+    <div class="card simulator-card">
+      <div class="simulator-heading">
+        <div class="simulator-icon" aria-hidden="true">↗</div>
+        <div><h3 class="simulator-title">Banco de Bogotá</h3><p class="simulator-description">Calcula cuánto te quedaría si haces un abono extra el día 5.</p></div>
+      </div>
+      <div class="simulator-fields">
+        <div class="simulator-payment"><label for="simulador-abono-bdb">Abono extra ($)</label><input type="number" id="simulador-abono-bdb" min="0" step="10000" value="${abonoBdbActual}" oninput="actualizarEscenarioQuincena()"></div>
+        <div><label for="simulador-ingreso-5">Ingreso día 5 ($)</label><input type="number" id="simulador-ingreso-5" min="0" step="10000" value="${ingresosPorQuincena[5]}" oninput="actualizarEscenarioQuincena()"></div>
+        <div><label for="simulador-ingreso-20">Ingreso día 20 ($)</label><input type="number" id="simulador-ingreso-20" min="0" step="10000" value="${ingresosPorQuincena[20]}" oninput="actualizarEscenarioQuincena()"></div>
+      </div>
+      <div class="scenario-grid">
+      ${quincenas.map(({periodo, pagos}) => {
+        const cuotaBdb = pagos.detalles.find(detalle => detalle.id === 'd_bdb');
+        const baseSinBdb = Math.max(0, pagos.pendiente - (cuotaBdb ? cuotaBdb.pendiente : 0));
+        const aplicaAbonoBdb = Number(periodo.pagaEl) === 5;
+        const totalEscenario = baseSinBdb + (aplicaAbonoBdb ? abonoBdbActual : cuotaBdb ? cuotaBdb.pendiente : 0);
+        const ingreso = ingresosPorQuincena[periodo.pagaEl] || 0;
+        return `<div class="scenario-card scenario-quincena" data-dia="${periodo.pagaEl}" data-base="${baseSinBdb}" data-aplica-bdb="${aplicaAbonoBdb}">
+          <div class="scenario-date">QUINCENA DEL DÍA ${periodo.pagaEl}</div>
+          <div class="scenario-row"><span>Pagos</span><strong id="escenario-total-${periodo.pagaEl}">${fmt(totalEscenario)}</strong></div>
+          <div class="scenario-row remaining"><span>${ingreso >= totalEscenario ? 'Te queda' : 'Te faltaría'}</span><strong class="${ingreso < totalEscenario ? 'shortfall' : ''}" id="escenario-restante-${periodo.pagaEl}">${fmt(ingreso - totalEscenario)}</strong></div>
+        </div>`;
+      }).join('')}
+      </div>
+      <div class="hint simulator-hint">Cuenta las obligaciones registradas; no incluye gastos diarios o variables. No guarda ni registra pagos.</div>
+    </div>
+
     <h2 class="section-title">Copia de Seguridad y Respaldo</h2>
     <div class="card">
       <p class="hint" style="font-size:12px;color:var(--ink);margin-top:0">
