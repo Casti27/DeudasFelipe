@@ -174,12 +174,18 @@
 <script>
 const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_5_octubre';
 const RAPPI_ALEXA_MIGRATION = 'rappicard-alexa-h2o-installments';
+const RAPPI_NOVEMBER_STATEMENT_MIGRATION = 'rappicard-november-2026-statement';
+const RAPPI_GASOLINE_MIGRATION = 'rappicard-gasoline-purchase-2026-10-26';
 const ADDI_PAYDAY_MIGRATION = 'addi-payday-fifth';
 const COLSUB_BALANCE_MIGRATION = 'colsub-balance-1238194';
 const RAPPI_ALEXA_AMOUNT = 282229;
 const RAPPI_ALEXA_BASE_BALANCE = 563463;
 const RAPPI_ALEXA_TOTAL_BALANCE = 845692;
+const RAPPI_NOVEMBER_BALANCE = 896705;
+const RAPPI_NOVEMBER_MINIMUM = 519004.64;
+const BDB_CURRENT_BALANCE = 7831418;
 const COLSUB_CURRENT_BALANCE = 1238194;
+const BDB_BALANCE_MIGRATION = 'bdb-balance-7831418-october-2026';
 let currentTab = 'resumen';
 let data = null;
 let openDeudaHistorialId = null;
@@ -209,7 +215,7 @@ function initialBaseData(){
         nombre: 'Banco de Bogotá (Libre Inv.)',
         tipo: 'revolvente',
         saldoInicial: 9516075,
-        saldoActual: 7799258,
+        saldoActual: BDB_CURRENT_BALANCE,
         tasaInteresMensual: 2.085,
         cuotaValor: 507292,
         cuotasTotales: 24,
@@ -412,6 +418,182 @@ function normalizeData(raw){
       normalized.migrations.push(RAPPI_ALEXA_MIGRATION);
     }
   }
+  if(!normalized.migrations.includes(RAPPI_NOVEMBER_STATEMENT_MIGRATION)){
+    const rappi = normalized.deudas.find(deuda => deuda.id === 'd_rappi');
+    if(rappi){
+      const movimientosPeriodo = [
+        {
+          id: 'rappi_nov_2026_meli_1_3',
+          fecha: '2026-10-23',
+          nota: 'MercadoPago MERCADOLI',
+          monto: 282228.90,
+          valorCuota: 94076.30,
+          capitalCuota: 94076.30,
+          interesCuota: 0,
+          cuotasTotales: 3,
+          cuotasPagadas: 0,
+          fechaPrimeraCuota: '2026-11-01'
+        },
+        {
+          id: 'rappi_nov_2026_terpel_1_1',
+          fecha: '2026-10-22',
+          nota: 'PAGOS APP TERPEL',
+          monto: 52108,
+          valorCuota: 52108,
+          capitalCuota: 52108,
+          interesCuota: 0,
+          cuotasTotales: 1,
+          cuotasPagadas: 0,
+          fechaPrimeraCuota: '2026-11-01'
+        },
+        {
+          id: 'rappi_nov_2026_melimas_1_1',
+          fecha: '2026-10-22',
+          nota: 'MercadoPago - Melimas',
+          monto: 999,
+          valorCuota: 1195.74,
+          capitalCuota: 999,
+          interesCuota: 196.74,
+          cuotasTotales: 1,
+          cuotasPagadas: 0,
+          fechaPrimeraCuota: '2026-11-01'
+        },
+        {
+          id: 'rappi_nov_2026_lakasta_1_1',
+          fecha: '2026-10-22',
+          nota: 'LA KASTA DC',
+          monto: 170505,
+          valorCuota: 170505,
+          capitalCuota: 170505,
+          interesCuota: 0,
+          cuotasTotales: 1,
+          cuotasPagadas: 0,
+          fechaPrimeraCuota: '2026-11-01'
+        },
+        {
+          id: 'rappi_nov_2026_comcel_1_1',
+          fecha: '2026-10-21',
+          nota: 'COMCEL PAGOS DE FACTUR',
+          monto: 38399,
+          valorCuota: 38399,
+          capitalCuota: 38399,
+          interesCuota: 0,
+          cuotasTotales: 1,
+          cuotasPagadas: 0,
+          fechaPrimeraCuota: '2026-11-01'
+        },
+        {
+          id: 'rappi_nov_2026_estacion_1_1',
+          fecha: '2026-10-20',
+          nota: 'Estacion de Servicio',
+          monto: 20000,
+          valorCuota: 20000,
+          capitalCuota: 20000,
+          interesCuota: 0,
+          cuotasTotales: 1,
+          cuotasPagadas: 0,
+          fechaPrimeraCuota: '2026-11-01'
+        },
+        {
+          id: 'rappi_nov_2026_meli_2_3',
+          fecha: '2026-10-14',
+          nota: 'MERCADO PAGO MERCADOLI',
+          monto: 114000,
+          valorCuota: 38000,
+          capitalCuota: 38000,
+          interesCuota: 0,
+          cuotasTotales: 3,
+          cuotasPagadas: 1,
+          fechaPrimeraCuota: '2026-10-01'
+        },
+        {
+          id: 'rappi_nov_2026_amazon_2_3',
+          fecha: '2026-10-10',
+          nota: 'Amazon',
+          monto: 287349.90,
+          valorCuota: 99825.40,
+          capitalCuota: 95783.30,
+          interesCuota: 4042.06,
+          cuotasTotales: 3,
+          cuotasPagadas: 1,
+          fechaPrimeraCuota: '2026-10-01'
+        },
+        {
+          id: 'rappi_nov_2026_usbpublic_2_2',
+          fecha: '2026-09-29',
+          nota: 'MERCADO PAGO USBPUBLIC',
+          monto: 9790.48,
+          valorCuota: 4895.24,
+          capitalCuota: 4895.24,
+          interesCuota: 0,
+          cuotasTotales: 2,
+          cuotasPagadas: 1,
+          fechaPrimeraCuota: '2026-10-01'
+        }
+      ];
+
+      const mercadoPagoPrimeraCuota = movimientosPeriodo[0];
+      const compraPreexistente = rappi.historialPagos.find(movimiento =>
+        Number(movimiento.monto) === RAPPI_ALEXA_AMOUNT &&
+        movimiento.fecha === mercadoPagoPrimeraCuota.fecha &&
+        (movimiento.tipo === 'compra' || movimiento.tipo === 'retiro')
+      );
+      if(compraPreexistente){
+        Object.assign(compraPreexistente, mercadoPagoPrimeraCuota, { tipo: 'compra' });
+      } else {
+        rappi.historialPagos.push({ ...mercadoPagoPrimeraCuota, tipo: 'compra' });
+      }
+
+      movimientosPeriodo.slice(1).forEach(movimiento => {
+        const existe = rappi.historialPagos.some(registro =>
+          registro.id === movimiento.id ||
+          (registro.tipo === 'compra' && registro.fecha === movimiento.fecha && registro.nota === movimiento.nota)
+        );
+        if(!existe) rappi.historialPagos.push({ ...movimiento, tipo: 'compra' });
+      });
+
+      rappi.saldoActual = RAPPI_NOVEMBER_BALANCE;
+      rappi.pagoMinimoEstimado = RAPPI_NOVEMBER_MINIMUM;
+      rappi.totalPeriodoRegistrado = Math.round(movimientosPeriodo.reduce((total, movimiento) => total + movimiento.valorCuota, 0) * 100) / 100;
+      rappi.saldoBaseCuotas = 0;
+      rappi.fechaInicioBaseCuotas = '2026-11-01';
+      rappi.fechaUltimaActualizacion = toISO(new Date());
+      normalized.migrations.push(RAPPI_NOVEMBER_STATEMENT_MIGRATION);
+    }
+  }
+  const rappi = normalized.deudas.find(deuda => deuda.id === 'd_rappi');
+  if(rappi){
+    const comprasGasolina = rappi.historialPagos.filter(movimiento =>
+      movimiento.fecha === '2026-10-26' && Number(movimiento.monto) === 51013 &&
+      (movimiento.tipo === 'compra' || movimiento.tipo === 'retiro') &&
+      (movimiento.id === 'rappi_gasolina_2026_10_26' || /gasolina/i.test(movimiento.nota || ''))
+    );
+    const gasolina = comprasGasolina[0] || {
+      id: 'rappi_gasolina_2026_10_26',
+      fecha: '2026-10-26',
+      monto: 51013
+    };
+    Object.assign(gasolina, {
+      id: 'rappi_gasolina_2026_10_26',
+      fecha: '2026-10-26',
+      tipo: 'compra',
+      monto: 51013,
+      nota: 'Gasolina'
+    });
+    rappi.historialPagos = rappi.historialPagos.filter(movimiento =>
+      !comprasGasolina.includes(movimiento) || movimiento === gasolina
+    );
+    if(!rappi.historialPagos.includes(gasolina)) rappi.historialPagos.push(gasolina);
+    if(!normalized.migrations.includes(RAPPI_GASOLINE_MIGRATION)){
+      normalized.migrations.push(RAPPI_GASOLINE_MIGRATION);
+    }
+  }
+  normalized.gastos = normalized.gastos.filter(gasto =>
+    gasto.id !== 'rappi_gasolina_2026_10_26' &&
+    !(gasto.fecha === '2026-10-26' && Number(gasto.monto) === 51013 &&
+      gasto.medioPago === 'RappiCard' &&
+      `${gasto.nota || ''} ${gasto.categoria || ''}`.toLowerCase().includes('gasolina'))
+  );
   if(!normalized.migrations.includes(ADDI_PAYDAY_MIGRATION)){
     const addi = normalized.deudas.find(deuda => deuda.id === 'd_addi');
     if(addi){
@@ -425,6 +607,14 @@ function normalizeData(raw){
       colsub.saldoActual = COLSUB_CURRENT_BALANCE;
       colsub.fechaUltimaActualizacion = toISO(new Date());
       normalized.migrations.push(COLSUB_BALANCE_MIGRATION);
+    }
+  }
+  if(!normalized.migrations.includes(BDB_BALANCE_MIGRATION)){
+    const bdb = normalized.deudas.find(deuda => deuda.id === 'd_bdb');
+    if(bdb){
+      bdb.saldoActual = BDB_CURRENT_BALANCE;
+      bdb.fechaUltimaActualizacion = toISO(new Date());
+      normalized.migrations.push(BDB_BALANCE_MIGRATION);
     }
   }
   return normalized;
@@ -482,6 +672,15 @@ function fmt(n){
   }).format(val);
 }
 
+function fmtCentavos(n){
+  return new Intl.NumberFormat('es-CO', {
+    style: 'currency',
+    currency: data.config.moneda || 'COP',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(Number(n) || 0);
+}
+
 function parseDate(iso){ const [y,m,d] = iso.split('-').map(Number); return new Date(y, m-1, d); }
 function toISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function midnight(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
@@ -517,23 +716,26 @@ function enRango(iso, inicio, fin){ const d = parseDate(iso); return d >= inicio
 
 function cuotasTarjetaParaPeriodo(deuda, periodo){
   const mesPago = periodo.fin.getFullYear() * 12 + periodo.fin.getMonth();
-  return deuda.historialPagos.reduce((total, movimiento) => {
+  const total = deuda.historialPagos.reduce((totalAcumulado, movimiento) => {
     const cuotas = Number(movimiento.cuotasTotales);
-    if(!esMovimientoEnCuotas(movimiento) || !Number.isInteger(cuotas) || cuotas < 1) return total;
+    if(!esMovimientoEnCuotas(movimiento) || !Number.isInteger(cuotas) || cuotas < 1) return totalAcumulado;
 
     const fechaMovimiento = movimiento.fecha ? parseDate(movimiento.fecha) : null;
-    if(!movimiento.fechaPrimeraCuota && !fechaMovimiento) return total;
+    if(!movimiento.fechaPrimeraCuota && !fechaMovimiento) return totalAcumulado;
     const primeraCuota = movimiento.fechaPrimeraCuota
       ? parseDate(movimiento.fechaPrimeraCuota)
       : new Date(fechaMovimiento.getFullYear(), fechaMovimiento.getMonth() + 1, 1);
     const indiceCuota = mesPago - (primeraCuota.getFullYear() * 12 + primeraCuota.getMonth());
-    if(indiceCuota < 0 || indiceCuota >= cuotas) return total;
+    if(indiceCuota < 0 || indiceCuota >= cuotas) return totalAcumulado;
 
     const monto = Number(movimiento.monto) || 0;
     const cuotaBase = Math.floor(monto / cuotas);
-    const valorCuota = indiceCuota === cuotas - 1 ? monto - cuotaBase * (cuotas - 1) : cuotaBase;
-    return total + valorCuota;
+    const valorCuota = movimiento.valorCuota !== undefined && movimiento.valorCuota !== null
+      ? Number(movimiento.valorCuota) || 0
+      : indiceCuota === cuotas - 1 ? monto - cuotaBase * (cuotas - 1) : cuotaBase;
+    return totalAcumulado + valorCuota;
   }, 0);
+  return Math.round(total * 100) / 100;
 }
 
 function saldoBaseTarjetaParaPeriodo(deuda, periodo){
@@ -701,14 +903,16 @@ function fechaLabel(iso){
 function cuotasRestantesLabel(movimiento){
   const total = Number(movimiento.cuotasTotales);
   if(!Number.isInteger(total) || total < 1) return '';
+  if(total === 1) return '';
   const fechaInicio = movimiento.fechaPrimeraCuota
     ? parseDate(movimiento.fechaPrimeraCuota)
     : movimiento.fecha ? new Date(parseDate(movimiento.fecha).getFullYear(), parseDate(movimiento.fecha).getMonth() + 1, 1) : null;
   if(!fechaInicio) return `${total} cuotas`;
   const hoy = new Date();
   const mesesDesdeInicio = Math.max(0, (hoy.getFullYear() - fechaInicio.getFullYear()) * 12 + hoy.getMonth() - fechaInicio.getMonth());
-  const restantes = Math.max(0, total - mesesDesdeInicio);
-  const proxima = Math.min(total, mesesDesdeInicio + 1);
+  const cuotasCumplidas = Math.max(Number(movimiento.cuotasPagadas) || 0, mesesDesdeInicio);
+  const restantes = Math.max(0, total - cuotasCumplidas);
+  const proxima = Math.min(total, cuotasCumplidas + 1);
   return restantes
     ? `Cuota ${proxima} de ${total} · ${restantes} ${restantes === 1 ? 'cuota pendiente' : 'cuotas pendientes'}`
     : `${total} de ${total} cuotas cumplidas según calendario`;
@@ -879,26 +1083,36 @@ function viewMovimientos(){
         const tipo = movimiento.tipo || (movimiento.pago ? 'pago' : 'retiro');
         const esPago = tipo === 'pago';
         const esCompra = tipo === 'compra';
-        const valor = Number(movimiento.monto || movimiento.pago) || 0;
+        const valor = esCompra && movimiento.valorCuota !== undefined
+          ? Number(movimiento.valorCuota) || 0
+          : Number(movimiento.monto || movimiento.pago) || 0;
         const cuotas = cuotasRestantesLabel(movimiento);
         const descripcion = esPago
           ? 'Pago registrado'
           : esCompra
             ? `Compra: ${escapeHtml(movimiento.nota || 'Sin descripción')}`
             : tipo === 'ajuste_saldo' ? 'Ajuste de saldo' : 'Retiro de tarjeta';
-        const meta = [fechaLabel(movimiento.fecha), cuotas, !esCompra && movimiento.nota ? escapeHtml(movimiento.nota) : ''].filter(Boolean).join(' · ');
+        const detalleCompra = esCompra && Number(movimiento.cuotasTotales) > 1 ? [
+          `Compra total ${fmt(movimiento.monto)}`,
+          movimiento.capitalCuota !== undefined ? `Capital ${fmtCentavos(movimiento.capitalCuota)}` : '',
+          movimiento.interesCuota > 0 ? `Interés ${fmtCentavos(movimiento.interesCuota)}` : ''
+        ] : [];
+        const meta = [fechaLabel(movimiento.fecha), cuotas, ...detalleCompra, !esCompra && movimiento.nota ? escapeHtml(movimiento.nota) : ''].filter(Boolean).join(' · ');
         return `<div class="txn-row">
           <div><div class="txn-desc">${descripcion}</div><div class="txn-meta">${meta}</div></div>
           <div class="txn-value ${esPago ? 'down' : 'up'}">${esPago ? '−' : '+'} ${fmt(valor)}</div>
         </div>`;
       }).join('')
     : '<div class="empty">Todavía no hay compras ni pagos registrados en RappiCard.</div>';
+  const resumenRappi = rappi && rappi.pagoMinimoEstimado !== undefined
+    ? `<div class="hint">Noviembre 2026 · Pago mínimo estimado: ${fmtCentavos(rappi.pagoMinimoEstimado)} · Movimientos del periodo registrados: ${fmtCentavos(rappi.totalPeriodoRegistrado)} · Diferencia: ${fmtCentavos(Math.round(Math.abs(rappi.totalPeriodoRegistrado - rappi.pagoMinimoEstimado) * 100) / 100)}.</div>`
+    : '';
 
   return `<h2 class="section-title">Movimientos y gastos</h2>
     <div class="section-head"><div><h2 class="section-title">Gastos e ingresos</h2><div class="section-note">Movimientos personales y gastos registrados</div></div></div>
     ${movimientosHtml}
     <div class="section-head"><div><h2 class="section-title">RappiCard</h2><div class="section-note">${rappi ? `Saldo total: ${fmt(rappi.saldoActual)}` : 'Historial de compras y pagos'}</div></div></div>
-    <div class="card"><div class="details-box" style="margin-top:0">${movimientosRappiHtml}</div></div>`;
+    <div class="card">${resumenRappi}<div class="details-box" style="margin-top:0">${movimientosRappiHtml}</div></div>`;
 }
 
 function viewDeudas(){
