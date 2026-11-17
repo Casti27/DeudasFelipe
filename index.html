@@ -122,6 +122,10 @@
   .fuel-bar { width: 100%; max-width: 42px; min-height: 6px; border-radius: 10px 10px 4px 4px; background: linear-gradient(180deg, #2b826c 0%, #1b5147 100%); transition: height .3s ease; }
   .fuel-bar-lbl { font-size: 11px; font-weight: 600; color: var(--ink-soft); margin-top: 8px; text-transform: capitalize; }
   .fuel-badge { display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); font-weight: 650; margin-left: 6px; }
+  .restante-box { margin-top: 14px; padding: 14px; border-radius: 13px; background: var(--surface-muted); border: 1px solid var(--line); }
+  .restante-val { font-size: 19px; font-weight: 750; letter-spacing: -.4px; white-space: nowrap; }
+  .restante-val.pos { color: var(--accent); }
+  .restante-val.neg { color: var(--bad); }
   @media (max-width: 520px) {
     .header { padding: 20px 18px 12px; }
     main { padding: 8px 16px 108px; }
@@ -161,7 +165,7 @@
 <div id="modal-root"></div>
 
 <script>
-const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v4_9_noviembre';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v5_1_noviembre';
 let currentTab = 'resumen';
 let data = null;
 let openDeudaHistorialId = null;
@@ -886,9 +890,88 @@ function viewDeudas(){
     ${data.deudas.some(deuda => !deuda.activo) ? `<div class="section-head"><div><h2 class="section-title">Créditos inactivos</h2></div></div>${data.deudas.filter(deuda => !deuda.activo).map(renderDebtCard).join('')}` : ''}`;
 }
 
+function calcularProyeccionRestantes(ing5, ing20, abonoBdb){
+  const periodos = getQuincenasOrdenadas(new Date());
+  const p5 = periodos.q1.pagaEl === 5 ? periodos.q1 : periodos.q2;
+  const p20 = periodos.q1.pagaEl === 20 ? periodos.q1 : periodos.q2;
+  const pagos5 = getPagosQuincena(p5);
+  const pagos20 = getPagosQuincena(p20);
+
+  const bdb = data.deudas.find(d => d.id === 'd_bdb');
+  const cuotaBdb = bdb && bdb.activo && Number(bdb.saldoActual) > 0 ? Number(bdb.cuotaValor || 0) : 0;
+  const extraBdb = Math.max(0, abonoBdb - cuotaBdb);
+
+  const comp5 = pagos5.total + extraBdb;
+  const comp20 = pagos20.total;
+  const rest5 = ing5 - comp5;
+  const rest20 = ing20 - comp20;
+  const restMes = rest5 + rest20;
+
+  return { comp5, comp20, extraBdb, cuotaBdb, rest5, rest20, restMes };
+}
+
 function viewAjustes(){
   const dias = diasPagoOrdenados();
+  const ing5 = Number(data.config.ingresoQuincena5) || 0;
+  const ing20 = Number(data.config.ingresoQuincena20) || 0;
+  const abonoBdb = Number(data.config.abonoBdbSimulado) || 0;
+  const p = calcularProyeccionRestantes(ing5, ing20, abonoBdb);
+
   return `
+    <h2 class="section-title">Ingresos y Proyección de Restantes</h2>
+    <div class="card">
+      <p class="hint" style="margin-top:0">Ajusta tus ingresos quincenales y el abono planeado al Banco de Bogotá para calcular cuánto te queda libre.</p>
+      <div class="two-col">
+        <div>
+          <label>Ingreso Quincena Día ${dias[0]} ($)</label>
+          <input type="number" id="a-ing5" value="${ing5}" min="0" step="1000" oninput="recalcularRestantesPreview()">
+        </div>
+        <div>
+          <label>Ingreso Quincena Día ${dias[1]} ($)</label>
+          <input type="number" id="a-ing20" value="${ing20}" min="0" step="1000" oninput="recalcularRestantesPreview()">
+        </div>
+      </div>
+
+      <label>Abono total planeado Banco de Bogotá — Día ${dias[0]} ($)</label>
+      <input type="number" id="a-abono-bdb" value="${abonoBdb}" min="0" step="10000" oninput="recalcularRestantesPreview()">
+      <div class="hint" id="hint-abono-bdb">Cuota mínima: ${fmt(p.cuotaBdb)} · Abono extra a capital: <strong>${fmt(p.extraBdb)}</strong></div>
+
+      <div class="restante-box" id="restantes-preview">
+        <div class="row">
+          <div>
+            <div class="item-name">Restante Quincena Día ${dias[0]}</div>
+            <div class="item-meta">Ingreso ${fmt(ing5)} − Compromisos ${fmt(p.comp5)}${p.extraBdb > 0 ? ` (incl. ${fmt(p.extraBdb)} extra BdB)` : ''}</div>
+          </div>
+          <div class="restante-val ${p.rest5 >= 0 ? 'pos' : 'neg'}">${fmt(p.rest5)}</div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="item-name">Restante Quincena Día ${dias[1]}</div>
+            <div class="item-meta">Ingreso ${fmt(ing20)} − Compromisos ${fmt(p.comp20)}</div>
+          </div>
+          <div class="restante-val ${p.rest20 >= 0 ? 'pos' : 'neg'}">${fmt(p.rest20)}</div>
+        </div>
+        <div class="row">
+          <div>
+            <div class="item-name">Total Restante Libre al Mes</div>
+            <div class="item-meta">Disponible para gastos variables / ahorro</div>
+          </div>
+          <div class="restante-val ${p.restMes >= 0 ? 'pos' : 'neg'}">${fmt(p.restMes)}</div>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-title">Fechas de Corte / Pago</h2>
+    <div class="card">
+      <div class="two-col">
+        <div><label>Pago 1 (Día)</label><input type="number" id="a-dia1" value="${dias[0]}" min="1" max="28"></div>
+        <div><label>Pago 2 (Día)</label><input type="number" id="a-dia2" value="${dias[1]}" min="1" max="28"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn primary" onclick="guardarAjustes()">Guardar Configuración</button>
+      </div>
+    </div>
+
     <h2 class="section-title">Copia de Seguridad y Respaldo</h2>
     <div class="card">
       <p class="hint" style="font-size:12px;color:var(--ink);margin-top:0">
@@ -900,20 +983,66 @@ function viewAjustes(){
       </div>
     </div>
 
-    <h2 class="section-title">Fechas de Corte / Pago</h2>
     <div class="card">
-      <div class="two-col">
-        <div><label>Pago 1 (Día)</label><input type="number" id="a-dia1" value="${dias[0]}" min="1" max="28"></div>
-        <div><label>Pago 2 (Día)</label><input type="number" id="a-dia2" value="${dias[1]}" min="1" max="28"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="modal-actions">
+      <div class="modal-actions" style="margin-top:0">
         <button class="btn ghost" onclick="borrarTodo()">Restablecer Todo</button>
       </div>
     </div>
   `;
+}
+
+function recalcularRestantesPreview(){
+  const dias = diasPagoOrdenados();
+  const ing5 = Number(document.getElementById('a-ing5').value) || 0;
+  const ing20 = Number(document.getElementById('a-ing20').value) || 0;
+  const abonoBdb = Number(document.getElementById('a-abono-bdb').value) || 0;
+  const p = calcularProyeccionRestantes(ing5, ing20, abonoBdb);
+
+  const hintBdb = document.getElementById('hint-abono-bdb');
+  if(hintBdb){
+    hintBdb.innerHTML = `Cuota mínima: ${fmt(p.cuotaBdb)} · Abono extra a capital: <strong>${fmt(p.extraBdb)}</strong>`;
+  }
+
+  const box = document.getElementById('restantes-preview');
+  if(!box) return;
+  box.innerHTML = `
+    <div class="row">
+      <div>
+        <div class="item-name">Restante Quincena Día ${dias[0]}</div>
+        <div class="item-meta">Ingreso ${fmt(ing5)} − Compromisos ${fmt(p.comp5)}${p.extraBdb > 0 ? ` (incl. ${fmt(p.extraBdb)} extra BdB)` : ''}</div>
+      </div>
+      <div class="restante-val ${p.rest5 >= 0 ? 'pos' : 'neg'}">${fmt(p.rest5)}</div>
+    </div>
+    <div class="row">
+      <div>
+        <div class="item-name">Restante Quincena Día ${dias[1]}</div>
+        <div class="item-meta">Ingreso ${fmt(ing20)} − Compromisos ${fmt(p.comp20)}</div>
+      </div>
+      <div class="restante-val ${p.rest20 >= 0 ? 'pos' : 'neg'}">${fmt(p.rest20)}</div>
+    </div>
+    <div class="row">
+      <div>
+        <div class="item-name">Total Restante Libre al Mes</div>
+        <div class="item-meta">Disponible para gastos variables / ahorro</div>
+      </div>
+      <div class="restante-val ${p.restMes >= 0 ? 'pos' : 'neg'}">${fmt(p.restMes)}</div>
+    </div>`;
+}
+
+function guardarAjustes(){
+  const ing5 = Number(document.getElementById('a-ing5').value) || 0;
+  const ing20 = Number(document.getElementById('a-ing20').value) || 0;
+  const abonoBdb = Number(document.getElementById('a-abono-bdb').value) || 0;
+  const d1 = Math.min(28, Math.max(1, Number(document.getElementById('a-dia1').value) || 5));
+  const d2 = Math.min(28, Math.max(1, Number(document.getElementById('a-dia2').value) || 20));
+
+  data.config.ingresoQuincena5 = ing5;
+  data.config.ingresoQuincena20 = ing20;
+  data.config.abonoBdbSimulado = abonoBdb;
+  data.config.diasPago = [d1, d2];
+  saveData();
+  render();
+  alert('¡Configuración guardada!');
 }
 
 function exportarRespaldo(){
