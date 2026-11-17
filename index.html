@@ -167,7 +167,7 @@
 <div id="modal-root"></div>
 
 <script>
-const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v5_2_noviembre';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v5_6_noviembre';
 let currentTab = 'resumen';
 let data = null;
 let openDeudaHistorialId = null;
@@ -351,7 +351,7 @@ function initialBaseData(){
         ]
       }
     ],
-    migrations: ['rappicard-nov-2026-exact-947127', 'addi-nov-2026-2x43845']
+    migrations: ['rappicard-nov-2026-exact-947127', 'addi-nov-2026-2x43845', 'rappi-corte-ciclo-activo']
   };
 }
 
@@ -383,6 +383,11 @@ function normalizeData(raw){
     const baseAddi = base.deudas.find(d => d.id === 'd_addi');
     if(addiIdx >= 0 && baseAddi) merged.deudas[addiIdx] = baseAddi;
     merged.migrations.push('addi-nov-2026-2x43845');
+  }
+  if(!merged.migrations.includes('rappi-corte-ciclo-activo')){
+    const rappi = merged.deudas.find(d => d.id === 'd_rappi');
+    if(rappi) rappi.cuotaValor = 654618;
+    merged.migrations.push('rappi-corte-ciclo-activo');
   }
   return merged;
 }
@@ -489,6 +494,20 @@ function getFechaInicioCorte(deuda){
   return inicio;
 }
 
+// Determina si una fecha de movimiento ocurrió DESPUÉS del cierre de corte del periodo actual
+// (es decir, ya sobre el extracto facturado y no dentro del ciclo abierto de consumo)
+function esPagoExtractoCerrado(isoFecha, deuda, periodo){
+  const f = parseDate(isoFecha);
+  const corte = Number(deuda.corteDia) || 20;
+  // Fecha del corte correspondiente al periodo de pago
+  const fechaCortePeriodo = new Date(periodo.fin.getFullYear(), periodo.fin.getMonth(), corte);
+  // Si el corte cae después del fin de la quincena (ej. corte día 25 y pago día 5), el corte cerrado fue el mes anterior
+  if (fechaCortePeriodo > periodo.fin) {
+    fechaCortePeriodo.setMonth(fechaCortePeriodo.getMonth() - 1);
+  }
+  return f > fechaCortePeriodo;
+}
+
 function getPagosQuincena(periodo){
   const detalles = [];
   data.deudas.filter(deuda => deuda.activo && Number(deuda.saldoActual) > 0).forEach(deuda => {
@@ -508,6 +527,9 @@ function getPagosQuincena(periodo){
       if (!m.fecha) return sum;
       const esPago = (m.tipo === 'pago' || Number(m.pago) > 0);
       if (!esPago || !enRango(m.fecha, periodo.inicio, periodo.fin)) return sum;
+      // En tarjetas de crédito, los abonos antes del corte solo liberan cupo del ciclo activo;
+      // solo los pagos hechos DESPUÉS del corte descuentan el extracto facturado.
+      if (deuda.tipo === 'tarjeta' && !esPagoExtractoCerrado(m.fecha, deuda, periodo)) return sum;
       return sum + (Number(m.monto || m.pago) || 0);
     }, 0);
 
@@ -520,7 +542,7 @@ function getPagosQuincena(periodo){
       cuota: cuotaProgramada,
       abonado: abonadoEnPeriodo,
       pagado,
-      pendiente,
+      pendiente: Math.round(pendiente),
       tarjeta: deuda.tipo === 'tarjeta',
       gasto: false
     });
@@ -798,7 +820,7 @@ function renderDebtCard(deuda){
       <div><div class="metric-label">Interés aprox. / día</div><div class="metric-value">${fmt(interesDiario(deuda))}</div></div>
       <div><div class="metric-label">Tiempo estimado</div><div class="metric-value">${deuda.tipo === 'tarjeta' ? 'Cupo rotativo' : plazoLabel(deuda)}</div></div>
     </div>
-    <div class="row"><span class="label">${deuda.tipo === 'tarjeta' ? 'Pago mínimo estimado periodo' : 'Cuota mensual registrada'}</span><span class="val">${cuota ? fmt(cuota) : 'Sin definir'}</span></div>
+    <div class="row"><span class="label">${deuda.tipo === 'tarjeta' ? 'Pago mínimo proyectado periodo' : 'Cuota mensual registrada'}</span><span class="val">${cuota ? fmt(cuota) : 'Sin definir'}</span></div>
     ${deuda.quincenaPago ? `<div class="row"><span class="label">Fecha habitual de pago</span><span class="val">Día ${deuda.quincenaPago === 'ambas' ? '5 y 20' : deuda.quincenaPago}</span></div>` : ''}
     <div class="progress-track"><div class="progress-fill" style="width:${progreso}%"></div></div>
     <button class="row clickable-row" style="width:100%;border:0;background:transparent;text-align:left" onclick="toggleDeudaHistorial('${deuda.id}')">
@@ -1211,7 +1233,7 @@ function openDeudaForm(editId = null){
             <input type="number" id="d-interes" min="0" step="0.01" value="${deuda ? Number(deuda.tasaInteresMensual) || 0 : 0}" placeholder="0" oninput="autoCalcularCuotaDeuda()">
           </div>
           <div>
-            <label>${deuda && deuda.tipo === 'tarjeta' ? 'Pago mínimo periodo ($)' : 'Valor cuota mensual ($)'}</label>
+            <label>${deuda && deuda.tipo === 'tarjeta' ? 'Pago mínimo proyectado periodo ($)' : 'Valor cuota mensual ($)'}</label>
             <input type="number" id="d-cuota" min="0" step="1" value="${deuda ? Number(deuda.cuotaValor) || '' : ''}" placeholder="Calculado automático">
           </div>
         </div>
@@ -1318,7 +1340,7 @@ function registrarMovimientoDeuda(id, tipo, defaultNota = ''){
         <label>Fecha del movimiento</label>
         <input type="date" id="mov-deuda-fecha" value="${toISO(new Date())}">
         <label>Detalle (opcional)</label>
-        <input type="text" id="mov-deuda-nota" value="${escapeHtml(defaultNota)}" placeholder="${esPago ? 'Ej. Pago cuota' : 'Ej. Gasolina Terpel / Compra'}">
+        <input type="text" id="mov-deuda-nota" value="${escapeHtml(defaultNota)}" placeholder="${esPago ? 'Ej. Pago cuota / Abono' : 'Ej. Gasolina Terpel / Compra'}">
         <div class="modal-actions">
           <button class="btn ghost" onclick="closeModal()">Cancelar</button>
           <button class="btn primary" onclick="confirmarMovimientoDeuda('${id}','${tipo}')">${esPago ? 'Aplicar pago' : 'Agregar al saldo'}</button>
@@ -1384,7 +1406,7 @@ function actualizarSaldoRappi(){
         <h3>Actualizar saldo de RappiCard</h3>
         <label>Saldo total que muestra RappiCard ($)</label>
         <input type="number" id="rappi-saldo" value="${Number(deuda.saldoActual) || 0}">
-        <label>Pago mínimo estimado del periodo ($)</label>
+        <label>Pago mínimo proyectado del periodo ($)</label>
         <input type="number" id="rappi-minimo" value="${Number(deuda.cuotaValor) || 0}">
         <div class="modal-actions">
           <button class="btn ghost" onclick="closeModal()">Cancelar</button>
