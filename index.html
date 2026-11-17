@@ -126,6 +126,8 @@
   .restante-val { font-size: 19px; font-weight: 750; letter-spacing: -.4px; white-space: nowrap; }
   .restante-val.pos { color: var(--accent); }
   .restante-val.neg { color: var(--bad); }
+  .progress-track { height: 5px; background: var(--line); border-radius: 99px; overflow: hidden; margin-top: 12px; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 99px; transition: width .3s ease; }
   @media (max-width: 520px) {
     .header { padding: 20px 18px 12px; }
     main { padding: 8px 16px 108px; }
@@ -165,7 +167,7 @@
 <div id="modal-root"></div>
 
 <script>
-const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v5_1_noviembre';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v5_2_noviembre';
 let currentTab = 'resumen';
 let data = null;
 let openDeudaHistorialId = null;
@@ -275,12 +277,12 @@ function initialBaseData(){
         id: 'd_addi',
         nombre: 'Addi (Crédito e51993d8)',
         tipo: 'cuota_fija',
-        saldoInicial: 246746,
-        saldoActual: 64245,
+        saldoInicial: 87690,
+        saldoActual: 87690,
         tasaInteresMensual: 0,
-        cuotaValor: 95823,
+        cuotaValor: 43845,
         cuotasTotales: 2,
-        cuotasPagadas: 1,
+        cuotasPagadas: 0,
         quincenaPago: 5,
         corteDia: 16,
         activo: true,
@@ -288,7 +290,8 @@ function initialBaseData(){
         historialPagos: [
           { fecha: '2026-09-18', pago: 48074, saldoResultante: 48074 },
           { id: 'mmvbj7rgz693', fecha: '2026-10-16', tipo: 'compra', monto: 110000, nota: 'Nueva compra a 3 cuotas' },
-          { id: 'mmw0stg3l413', fecha: '2026-11-03', tipo: 'pago', monto: 95820, nota: '' }
+          { id: 'mmw0stg3l413', fecha: '2026-11-03', tipo: 'pago', monto: 95820, nota: '' },
+          { id: 'addi_nov_2026_2cuotas', fecha: hoyISO, tipo: 'compra', monto: 87690, nota: 'Compra a 2 cuotas de $43.845', cuotasTotales: 2, valorCuota: 43845 }
         ]
       },
       {
@@ -348,7 +351,7 @@ function initialBaseData(){
         ]
       }
     ],
-    migrations: ['rappicard-nov-2026-exact-947127']
+    migrations: ['rappicard-nov-2026-exact-947127', 'addi-nov-2026-2x43845']
   };
 }
 
@@ -374,6 +377,12 @@ function normalizeData(raw){
     const baseRappi = base.deudas.find(d => d.id === 'd_rappi');
     if(rappiIdx >= 0 && baseRappi) merged.deudas[rappiIdx] = baseRappi;
     merged.migrations.push('rappicard-nov-2026-exact-947127');
+  }
+  if(!merged.migrations.includes('addi-nov-2026-2x43845')){
+    const addiIdx = merged.deudas.findIndex(d => d.id === 'd_addi');
+    const baseAddi = base.deudas.find(d => d.id === 'd_addi');
+    if(addiIdx >= 0 && baseAddi) merged.deudas[addiIdx] = baseAddi;
+    merged.migrations.push('addi-nov-2026-2x43845');
   }
   return merged;
 }
@@ -436,6 +445,15 @@ function midnight(d){ return new Date(d.getFullYear(), d.getMonth(), d.getDate()
 
 function diasPagoOrdenados(){
   return [...data.config.diasPago].sort((a,b) => a-b);
+}
+
+function calcularValorCuota(monto, tasaMensualPct, cuotas){
+  const n = Math.max(1, Math.round(Number(cuotas) || 1));
+  const P = Math.max(0, Number(monto) || 0);
+  const i = Math.max(0, Number(tasaMensualPct) || 0) / 100;
+  if(P <= 0) return 0;
+  if(i === 0) return Math.round(P / n);
+  return Math.round((P * i) / (1 - Math.pow(1 + i, -n)));
 }
 
 function getQuincenasOrdenadas(hoy){
@@ -558,7 +576,7 @@ function render(){
     topAction.onclick = () => openMovForm();
   } else {
     topAction.setAttribute('aria-label', 'Agregar crédito');
-    topAction.onclick = openDeudaForm;
+    topAction.onclick = () => openDeudaForm();
   }
 }
 
@@ -759,6 +777,7 @@ function renderDebtCard(deuda){
     : '';
 
   const tipoIcono = deuda.tipo === 'tarjeta' ? '▣' : (deuda.tipo === 'cuota_fija' ? '◷' : '↗');
+  const cuotasInfo = deuda.cuotasTotales ? ` · ${Number(deuda.cuotasPagadas) || 0}/${deuda.cuotasTotales} cuotas` : '';
 
   return `<article class="item">
     <div class="item-top">
@@ -766,7 +785,7 @@ function renderDebtCard(deuda){
         <div class="credit-icon" aria-hidden="true">${tipoIcono}</div>
         <div>
           <div class="item-name">${escapeHtml(deuda.nombre)}</div>
-          <div class="item-meta">${deuda.tipo === 'tarjeta' ? 'Tarjeta de crédito' : deuda.tipo === 'cuota_fija' ? 'Crédito de cuota fija' : 'Crédito rotativo'}</div>
+          <div class="item-meta">${deuda.tipo === 'tarjeta' ? 'Tarjeta de crédito' : deuda.tipo === 'cuota_fija' ? 'Crédito de cuota fija' : 'Crédito rotativo'}${cuotasInfo}</div>
         </div>
       </div>
       <button class="icon-btn" aria-label="Editar crédito" onclick="openDeudaForm('${deuda.id}')">Editar</button>
@@ -1136,6 +1155,30 @@ function eliminarMov(tipo, id){
   saveData(); render();
 }
 
+function autoCalcularCuotaDeuda(){
+  const saldoEl = document.getElementById('d-saldo');
+  const cuotasEl = document.getElementById('d-cuotas');
+  const pagadasEl = document.getElementById('d-cuotas-pagadas');
+  const interesEl = document.getElementById('d-interes');
+  const cuotaEl = document.getElementById('d-cuota');
+  const hintEl = document.getElementById('d-cuota-hint');
+  if(!saldoEl || !cuotasEl || !cuotaEl) return;
+
+  const saldo = Number(saldoEl.value) || 0;
+  const cuotasTot = Math.max(0, Math.round(Number(cuotasEl.value) || 0));
+  const pagadas = Math.max(0, Math.round(Number(pagadasEl ? pagadasEl.value : 0) || 0));
+  const cuotasRestantes = cuotasTot > 0 ? Math.max(1, cuotasTot - pagadas) : 0;
+  const tasa = Number(interesEl ? interesEl.value : 0) || 0;
+
+  if(saldo > 0 && cuotasRestantes > 0){
+    const calculada = calcularValorCuota(saldo, tasa, cuotasRestantes);
+    cuotaEl.value = calculada;
+    if(hintEl) hintEl.textContent = `Calculada automáticamente para ${cuotasRestantes} ${cuotasRestantes === 1 ? 'cuota restante' : 'cuotas restantes'}: ${fmt(calculada)} / mes.`;
+  } else if(hintEl){
+    hintEl.textContent = 'Ingresa el valor total y el número de cuotas para calcularla automáticamente.';
+  }
+}
+
 function openDeudaForm(editId = null){
   const deuda = editId ? data.deudas.find(item => item.id === editId) : null;
   const dias = diasPagoOrdenados();
@@ -1143,20 +1186,36 @@ function openDeudaForm(editId = null){
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
       <div class="modal">
         <h3>${deuda ? 'Editar crédito' : 'Agregar crédito'}</h3>
-        <p class="modal-sub">${deuda ? 'Ajusta los parámetros del crédito.' : 'Registra el saldo pendiente de hoy y sus condiciones.'}</p>
+        <p class="modal-sub">${deuda ? 'Ajusta los parámetros del crédito.' : 'Registra el valor total de la compra/crédito y a cuántas cuotas va.'}</p>
         <label>Entidad o nombre del crédito</label>
-        <input type="text" id="d-nombre" value="${escapeHtml(deuda ? deuda.nombre : '')}" placeholder="Ej. Crédito Colsubsidio">
+        <input type="text" id="d-nombre" value="${escapeHtml(deuda ? deuda.nombre : '')}" placeholder="Ej. Addi / Mercado Libre / Crédito">
         <label>Tipo de crédito</label>
         <select id="d-tipo">
+          <option value="cuota_fija" ${!deuda || deuda.tipo === 'cuota_fija' ? 'selected' : ''}>Cuota fija / Compra diferida</option>
           <option value="revolvente" ${deuda && deuda.tipo === 'revolvente' ? 'selected' : ''}>Crédito rotativo</option>
-          <option value="cuota_fija" ${deuda && deuda.tipo === 'cuota_fija' ? 'selected' : ''}>Cuota fija</option>
           <option value="tarjeta" ${deuda && deuda.tipo === 'tarjeta' ? 'selected' : ''}>Tarjeta de crédito</option>
         </select>
-        ${deuda ? '' : `<label>Saldo pendiente actual ($)</label><input type="number" id="d-saldo" min="0" step="1" placeholder="0">`}
         <div class="two-col">
-          <div><label>Tasa mensual (% MV)</label><input type="number" id="d-interes" min="0" step="0.01" value="${deuda ? Number(deuda.tasaInteresMensual) || 0 : ''}" placeholder="Ej. 2,16"></div>
-          <div><label>${deuda && deuda.tipo === 'tarjeta' ? 'Pago mínimo periodo ($)' : 'Cuota mensual ($)'}</label><input type="number" id="d-cuota" min="0" step="1" value="${deuda ? Number(deuda.cuotaValor) || '' : ''}" placeholder="0"></div>
+          <div>
+            <label>${deuda ? 'Saldo pendiente actual ($)' : 'Monto total de la compra ($)'}</label>
+            <input type="number" id="d-saldo" min="0" step="1" value="${deuda ? Number(deuda.saldoActual) || 0 : ''}" placeholder="0" oninput="autoCalcularCuotaDeuda()">
+          </div>
+          <div>
+            <label>Número de cuotas</label>
+            <input type="number" id="d-cuotas" min="1" max="120" step="1" value="${deuda && deuda.cuotasTotales ? Number(deuda.cuotasTotales) : ''}" placeholder="Ej. 2, 3, 6..." oninput="autoCalcularCuotaDeuda()">
+          </div>
         </div>
+        <div class="two-col">
+          <div>
+            <label>Tasa mensual (% MV)</label>
+            <input type="number" id="d-interes" min="0" step="0.01" value="${deuda ? Number(deuda.tasaInteresMensual) || 0 : 0}" placeholder="0" oninput="autoCalcularCuotaDeuda()">
+          </div>
+          <div>
+            <label>${deuda && deuda.tipo === 'tarjeta' ? 'Pago mínimo periodo ($)' : 'Valor cuota mensual ($)'}</label>
+            <input type="number" id="d-cuota" min="0" step="1" value="${deuda ? Number(deuda.cuotaValor) || '' : ''}" placeholder="Calculado automático">
+          </div>
+        </div>
+        <div class="hint" id="d-cuota-hint">Ingresa el valor total y el número de cuotas para calcularla automáticamente.</div>
         <div class="two-col">
           <div>
             <label>Día habitual de pago</label>
@@ -1169,6 +1228,7 @@ function openDeudaForm(editId = null){
             <input type="number" id="d-corte" min="1" max="31" value="${deuda ? Number(deuda.corteDia) || 20 : 20}">
           </div>
         </div>
+        ${deuda ? `<label>Cuotas ya pagadas</label><input type="number" id="d-cuotas-pagadas" min="0" max="120" step="1" value="${Number(deuda.cuotasPagadas) || 0}" oninput="autoCalcularCuotaDeuda()">` : ''}
         <div class="modal-actions">
           <button class="btn ghost" onclick="closeModal()">Cancelar</button>
           <button class="btn primary" onclick="guardarDeuda('${editId || ''}')">Guardar crédito</button>
@@ -1180,8 +1240,11 @@ function openDeudaForm(editId = null){
 function guardarDeuda(editId){
   const nombre = document.getElementById('d-nombre').value.trim();
   const tipo = document.getElementById('d-tipo').value;
-  const interes = Number(document.getElementById('d-interes').value);
-  const cuota = Number(document.getElementById('d-cuota').value) || 0;
+  const saldo = Number(document.getElementById('d-saldo').value);
+  const cuotasRaw = Number(document.getElementById('d-cuotas').value);
+  const cuotasTotales = Number.isFinite(cuotasRaw) && cuotasRaw > 0 ? Math.round(cuotasRaw) : null;
+  const interes = Number(document.getElementById('d-interes').value) || 0;
+  let cuota = Number(document.getElementById('d-cuota').value) || 0;
   const diaPago = Number(document.getElementById('d-quincena').value);
   const corteDia = Number(document.getElementById('d-corte').value) || 20;
   const fechaHoy = toISO(new Date());
@@ -1191,20 +1254,27 @@ function guardarDeuda(editId){
     return;
   }
 
+  if(!cuota && saldo > 0 && cuotasTotales){
+    cuota = calcularValorCuota(saldo, interes, cuotasTotales);
+  }
+
   if(editId){
     const deuda = data.deudas.find(item => item.id === editId);
     if(!deuda) return;
+    const pagadasEl = document.getElementById('d-cuotas-pagadas');
     deuda.nombre = nombre;
     deuda.tipo = tipo;
+    if(Number.isFinite(saldo) && saldo >= 0) deuda.saldoActual = saldo;
+    deuda.cuotasTotales = cuotasTotales;
+    if(pagadasEl) deuda.cuotasPagadas = Math.max(0, Math.round(Number(pagadasEl.value) || 0));
     deuda.tasaInteresMensual = interes;
     deuda.cuotaValor = cuota;
     deuda.quincenaPago = diaPago;
     deuda.corteDia = corteDia;
     deuda.fechaUltimaActualizacion = fechaHoy;
   } else {
-    const saldo = Number(document.getElementById('d-saldo').value);
     if(!Number.isFinite(saldo) || saldo <= 0){
-      alert('Ingresa un saldo inicial mayor que cero.');
+      alert('Ingresa un monto total mayor que cero.');
       return;
     }
     data.deudas.push({
@@ -1215,13 +1285,19 @@ function guardarDeuda(editId){
       saldoActual: saldo,
       tasaInteresMensual: interes,
       cuotaValor: cuota,
-      cuotasTotales: null,
+      cuotasTotales: cuotasTotales,
       cuotasPagadas: 0,
       quincenaPago: diaPago,
       corteDia: corteDia,
       activo: true,
       fechaUltimaActualizacion: fechaHoy,
-      historialPagos: [{ id: uid('m'), fecha: fechaHoy, tipo: 'saldo_inicial', monto: saldo, nota: 'Saldo inicial' }]
+      historialPagos: [{
+        id: uid('m'),
+        fecha: fechaHoy,
+        tipo: 'saldo_inicial',
+        monto: saldo,
+        nota: cuotasTotales ? `Compra a ${cuotasTotales} cuotas de ${fmt(cuota)}` : 'Saldo inicial'
+      }]
     });
   }
   saveData(); closeModal(); render();
@@ -1238,6 +1314,7 @@ function registrarMovimientoDeuda(id, tipo, defaultNota = ''){
         <p class="modal-sub">${escapeHtml(deuda.nombre)} · Saldo actual ${fmt(deuda.saldoActual)}</p>
         <label>Valor ($)</label>
         <input type="number" id="mov-deuda-monto" min="1" step="1" value="${esPago ? Math.min(Number(deuda.cuotaValor) || Number(deuda.saldoActual), Number(deuda.saldoActual)) : ''}" placeholder="0">
+        ${!esPago ? `<label>¿A cuántas cuotas va este cargo? (opcional)</label><input type="number" id="mov-deuda-cuotas" min="1" max="60" step="1" placeholder="Ej. 1, 2, 3...">` : ''}
         <label>Fecha del movimiento</label>
         <input type="date" id="mov-deuda-fecha" value="${toISO(new Date())}">
         <label>Detalle (opcional)</label>
@@ -1255,19 +1332,45 @@ function confirmarMovimientoDeuda(id, tipo){
   if(!deuda) return;
   const monto = Number(document.getElementById('mov-deuda-monto').value);
   const fecha = document.getElementById('mov-deuda-fecha').value;
-  const nota = document.getElementById('mov-deuda-nota').value.trim();
+  const notaBase = document.getElementById('mov-deuda-nota').value.trim();
+  const cuotasEl = document.getElementById('mov-deuda-cuotas');
+  const cuotasCargo = cuotasEl ? Math.round(Number(cuotasEl.value) || 0) : 0;
   const hoy = toISO(new Date());
 
   if(!Number.isFinite(monto) || monto <= 0){ alert('Ingresa un valor mayor que cero.'); return; }
 
   const pago = tipo === 'pago';
   deuda.saldoActual = Math.max(0, Number(deuda.saldoActual || 0) + (pago ? -monto : monto));
-  if(!pago && deuda.tipo === 'tarjeta'){
-    deuda.cuotaValor = Math.min(deuda.saldoActual, (Number(deuda.cuotaValor) || 0) + monto);
+
+  let nota = notaBase;
+  let valorCuotaCargo = monto;
+  if(!pago && cuotasCargo > 0){
+    valorCuotaCargo = calcularValorCuota(monto, deuda.tasaInteresMensual, cuotasCargo);
+    if(!nota) nota = `Compra a ${cuotasCargo} cuotas`;
+    else if(!nota.includes('/')) nota = `${nota} (1/${cuotasCargo})`;
   }
+
+  if(!pago && deuda.tipo === 'tarjeta'){
+    deuda.cuotaValor = Math.min(deuda.saldoActual, (Number(deuda.cuotaValor) || 0) + valorCuotaCargo);
+  } else if(!pago && cuotasCargo > 0 && deuda.tipo === 'cuota_fija'){
+    deuda.cuotasTotales = cuotasCargo;
+    deuda.cuotasPagadas = 0;
+    deuda.cuotaValor = calcularValorCuota(deuda.saldoActual, deuda.tasaInteresMensual, cuotasCargo);
+  } else if(pago && deuda.cuotasTotales){
+    deuda.cuotasPagadas = Math.min(deuda.cuotasTotales, (Number(deuda.cuotasPagadas) || 0) + 1);
+  }
+
   deuda.fechaUltimaActualizacion = hoy;
   deuda.historialPagos = deuda.historialPagos || [];
-  deuda.historialPagos.push({ id: uid('m'), fecha, tipo: pago ? 'pago' : 'retiro', monto, nota });
+  deuda.historialPagos.push({
+    id: uid('m'),
+    fecha,
+    tipo: pago ? 'pago' : 'retiro',
+    monto,
+    valorCuota: !pago && cuotasCargo > 1 ? valorCuotaCargo : undefined,
+    cuotasTotales: !pago && cuotasCargo > 0 ? cuotasCargo : undefined,
+    nota
+  });
 
   saveData(); closeModal(); render();
 }
