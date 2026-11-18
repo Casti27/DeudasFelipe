@@ -112,7 +112,7 @@
     align-items: center;
     gap: 5px;
     margin-top: 3px;
-    padding: 2px 8px;
+    padding: 2px 9px;
     border-radius: 99px;
     background: var(--surface-2);
     color: var(--ink-soft);
@@ -1094,7 +1094,7 @@
         <div class="avatar-circle">F</div>
         <div class="greeting-wrap">
           <h1 class="title" id="hdr-title">Bienvenido, F...</h1>
-          <div class="cop-pill">🇨🇴 COP · <span id="hdr-sub">Hoy</span></div>
+          <div class="cop-pill">COP · <span id="hdr-sub">Hoy</span></div>
         </div>
       </div>
       <div class="header-actions">
@@ -1139,7 +1139,7 @@
 <div id="ctx-root"></div>
 
 <script>
-const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v5_8_noviembre';
+const APP_STORAGE_KEY = 'mi_libro_cuentas_pwa_v6_0_noviembre';
 let currentTab = 'resumen';
 let topSeg = 'finanzas';
 let txFilterTab = 'categorias';
@@ -1192,11 +1192,11 @@ function initialBaseData(){
       {
         id: 'd_bdb',
         nombre: 'Banco de Bogotá (Libre Inv.)',
-        tipo: 'revolvente',
+        tipo: 'cuota_fija',
         color: 'red',
         saldoInicial: 9516075,
         saldoActual: 6941847,
-        cupoTotal: 10000000,
+        cupoTotal: 0,
         tasaInteresMensual: 2.085,
         cuotaValor: 507292,
         cuotasTotales: 24,
@@ -1222,8 +1222,9 @@ function initialBaseData(){
         tasaInteresMensual: 2.13,
         tasaMoraMensual: 2.16,
         cuotaValor: 90321,
-        cuotasTotales: 5,
-        cuotasPagadas: 2,
+        factorCuotaVariable: 0.071827,
+        cuotasTotales: null,
+        cuotasPagadas: 0,
         quincenaPago: 20,
         corteDia: 16,
         activo: true,
@@ -1401,7 +1402,12 @@ function normalizeData(raw){
           id: m.id || `${deuda.id}_m_${idx}`
         }))
       };
+      if(updated.id === 'd_bdb'){
+        updated.tipo = 'cuota_fija';
+        updated.cupoTotal = 0;
+      }
       if(updated.id === 'd_addi' && updated.color === 'emerald') updated.color = 'addi_blue';
+      if(updated.id === 'd_colsub' && !updated.factorCuotaVariable) updated.factorCuotaVariable = 0.071827;
       return updated;
     }),
     saldoAcumuladoAnterior: Number(next.saldoAcumuladoAnterior || 0)
@@ -1442,6 +1448,32 @@ function calcularInteresDiarioAcumulado(){
   if(modificado) saveData();
 }
 
+function esCupoCuotaVariable(d){
+  return d && d.tipo === 'revolvente' && (!d.cuotasTotales || Number(d.cuotasTotales) <= 0);
+}
+
+function recalcularCuotaRotativaVariable(d){
+  if(!esCupoCuotaVariable(d)) return;
+  const saldo = Math.max(0, Number(d.saldoActual) || 0);
+  if(saldo <= 0){
+    d.cuotaValor = 0;
+    return;
+  }
+  const factor = Number(d.factorCuotaVariable) || 0.071827;
+  const cuotaEst = Math.round(saldo * factor);
+  const pisoMinimo = 30000;
+  d.cuotaValor = saldo <= pisoMinimo ? saldo : Math.max(pisoMinimo, cuotaEst);
+}
+
+function estimarMesesAmortizacion(saldo, tasaM, pagoMensual){
+  if(saldo <= 0) return 0;
+  if(pagoMensual <= 0) return null;
+  if(tasaM <= 0) return Math.ceil(saldo / pagoMensual);
+  const i = tasaM / 100;
+  if(pagoMensual <= saldo * i) return Infinity;
+  return Math.ceil(-Math.log(1 - (saldo * i) / pagoMensual) / Math.log(1 + i));
+}
+
 function getDebtMetrics(d){
   const saldo = Number(d.saldoActual) || 0;
   const tasaM = Number(d.tasaInteresMensual) || 0;
@@ -1449,33 +1481,48 @@ function getDebtMetrics(d){
   const tasaDiaria = tasaM > 0 ? Math.pow(1 + tasaM / 100, 1 / 30) - 1 : 0;
   const interesDia = saldo > 0 && tasaDiaria > 0 ? Math.round(saldo * tasaDiaria) : 0;
   const interesMes = saldo > 0 && tasaM > 0 ? Math.round(saldo * (tasaM / 100)) : 0;
+  const cuotaVariable = esCupoCuotaVariable(d);
+  const esTarjeta = d.tipo === 'tarjeta';
 
   let mesesRestantes = null;
-  if(saldo <= 0){
+  if(esTarjeta || cuotaVariable){
+    mesesRestantes = null; // Las tarjetas de crédito y cupos variables no van por plazo fijo en meses
+  } else if(saldo <= 0){
     mesesRestantes = 0;
-  } else if(d.cuotasTotales && d.cuotasTotales > 0){
+  } else if(d.tipo === 'cuota_fija' && tasaM <= 0 && d.cuotasTotales && d.cuotasTotales > 0){
     mesesRestantes = Math.max(1, Number(d.cuotasTotales) - (Number(d.cuotasPagadas) || 0));
   } else if(cuota > 0){
-    if(tasaM <= 0){
-      mesesRestantes = Math.ceil(saldo / cuota);
-    } else {
-      const i = tasaM / 100;
-      if(cuota > saldo * i){
-        mesesRestantes = Math.ceil(-Math.log(1 - (saldo * i) / cuota) / Math.log(1 + i));
-      } else {
-        mesesRestantes = Infinity;
-      }
+    mesesRestantes = estimarMesesAmortizacion(saldo, tasaM, cuota);
+  }
+
+  let mesesConAbonoPlaneado = null;
+  if(d.id === 'd_bdb' && data && data.config){
+    const abonoSim = Number(data.config.abonoBdbSimulado) || 0;
+    if(abonoSim > cuota){
+      mesesConAbonoPlaneado = estimarMesesAmortizacion(saldo, tasaM, abonoSim);
     }
   }
-  return { tasaM, interesDia, interesMes, mesesRestantes };
+
+  return { tasaM, interesDia, interesMes, mesesRestantes, mesesConAbonoPlaneado, cuotaVariable, esTarjeta };
 }
 
-function formatTiempoEstimado(meses){
-  if(meses === null || meses === undefined) return 'Rotativo';
+function sortByInterestDesc(list){
+  return [...list].sort((a, b) => {
+    const tB = Number(b.tasaInteresMensual) || 0;
+    const tA = Number(a.tasaInteresMensual) || 0;
+    if(tB !== tA) return tB - tA;
+    return (Number(b.saldoActual) || 0) - (Number(a.saldoActual) || 0);
+  });
+}
+
+function formatTiempoEstimado(meses, isVariable = false, isTarjeta = false){
+  if(isTarjeta) return 'Tarjeta de crédito';
+  if(isVariable) return 'Cuota variable';
+  if(meses === null || meses === undefined) return 'Según abonos';
   if(meses === 0) return 'Pagado';
   if(!Number.isFinite(meses)) return 'Cuota < interés';
-  if(meses === 1) return '1 mes (~30 días)';
-  return `${meses} meses (~${meses * 30}d)`;
+  if(meses === 1) return '~1 mes (30d)';
+  return `~${meses} meses (${meses * 30}d)`;
 }
 
 function getCardGradient(d){
@@ -1754,11 +1801,14 @@ function eliminarTxByKey(key, ask = true){
         const monto = Number(mov.monto || mov.pago) || 0;
         if(tipo === 'pago'){
           d.saldoActual = Number(d.saldoActual || 0) + monto;
+          recalcularCuotaRotativaVariable(d);
         } else if(tipo === 'compra' || tipo === 'retiro'){
           d.saldoActual = Math.max(0, Number(d.saldoActual || 0) - monto);
           if(d.tipo === 'tarjeta'){
             const cuota = Number(mov.valorCuota || monto) || 0;
             d.cuotaValor = Math.max(0, Number(d.cuotaValor || 0) - cuota);
+          } else {
+            recalcularCuotaRotativaVariable(d);
           }
         }
         d.historialPagos = d.historialPagos.filter(m => m.id !== itemId);
@@ -1837,10 +1887,13 @@ function saveEditedTx(key){
       const tipo = m.tipo || (m.pago ? 'pago' : 'compra');
       if(tipo === 'pago'){
         d.saldoActual = Math.max(0, Number(d.saldoActual || 0) - diff);
+        recalcularCuotaRotativaVariable(d);
       } else {
         d.saldoActual = Math.max(0, Number(d.saldoActual || 0) + diff);
         if(d.tipo === 'tarjeta' && (!m.cuotasTotales || m.cuotasTotales === 1)){
           d.cuotaValor = Math.max(0, Number(d.cuotaValor || 0) + diff);
+        } else {
+          recalcularCuotaRotativaVariable(d);
         }
       }
       m.monto = nuevoMonto;
@@ -1918,9 +1971,9 @@ function render(){
   }
 }
 
-/* VISTA INICIO CON CARRUSEL DESLIZABLE Y VALOR EXACTO DE INTERÉS POR DÍA */
+/* VISTA INICIO ORDENADA POR INTERÉS DE MAYOR A MENOR */
 function viewInicioIAMoney(){
-  const activas = data.deudas.filter(d => d.activo && Number(d.saldoActual) > 0);
+  const activas = sortByInterestDesc(data.deudas.filter(d => d.activo && Number(d.saldoActual) > 0));
   const totalDeuda = activas.reduce((s, d) => s + Number(d.saldoActual || 0), 0);
   const totalInteresDia = activas.reduce((s, d) => s + getDebtMetrics(d).interesDia, 0);
   const periodos = getQuincenasOrdenadas(new Date());
@@ -1939,7 +1992,7 @@ function viewInicioIAMoney(){
 
     <div class="panel-box">
       <div class="panel-box-head" onclick="setTab('deudas')" style="cursor:pointer">
-        <span>Mis cuentas <small style="color:var(--ink-soft);font-weight:500">(${activas.length})</small></span>
+        <span>Mis cuentas <small style="color:var(--ink-soft);font-weight:500">(${activas.length} · mayor interés)</small></span>
         <span style="color:var(--ink-soft)">Desliza ›</span>
       </div>
       <div class="accounts-scroll">
@@ -1952,7 +2005,7 @@ function viewInicioIAMoney(){
           const pctUso = (esTarjeta && cupo > 0) ? Math.min(100, Math.round((Number(d.saldoActual) / cupo) * 100)) : 0;
           const metaTxt = met.tasaM > 0
             ? `${met.tasaM}% · ~${fmt(met.interesDia)}/día`
-            : `${formatTiempoEstimado(met.mesesRestantes)}`;
+            : `${formatTiempoEstimado(met.mesesRestantes, met.cuotaVariable, met.esTarjeta)}`;
           const redShort = (d.red || '').toLowerCase().includes('master') ? 'MC' : 'VISA';
           return `<div class="blue-account-card" style="background:${grad}"
             onpointerdown="handlePressStart(event,'account','${d.id}')"
@@ -1965,10 +2018,10 @@ function viewInicioIAMoney(){
               <div class="acc-logo" style="background:${vis.bg};color:${vis.color}">${vis.svg}</div>
               <div class="acc-badges">
                 <span class="acc-pill">COP</span>
-                <span class="acc-net">${esTarjeta ? redShort : (met.tasaM > 0 ? met.tasaM + '%' : '0%')}</span>
+                <span class="acc-net">${esTarjeta ? (met.tasaM > 0 ? met.tasaM + '%' : redShort) : (met.tasaM > 0 ? met.tasaM + '%' : '0%')}</span>
               </div>
             </div>
-            ${esTarjeta && cupo > 0
+            ${esTarjeta && cupo > 0 && met.tasaM === 0
               ? `<div class="acc-usage-bar"><div class="acc-usage-fill" style="width:${pctUso}%"></div></div>`
               : `<div class="acc-meta-mini">${metaTxt}</div>`}
             <div class="acc-name">${escapeHtml(d.nombre)}</div>
@@ -1984,7 +2037,6 @@ function viewInicioIAMoney(){
         <div class="stat-sub">Interés aprox: ~${fmt(totalInteresDia)}/día</div>
         <div class="stat-val" style="color:var(--red)">
           <span>-${fmt(totalDeuda)}</span>
-          <span style="font-size:14px;color:var(--ink-soft)" onclick="hideBalance=!hideBalance;render()">👁</span>
         </div>
       </div>
       <div class="stat-card" onclick="setTopSeg('quincenas')" style="cursor:pointer">
@@ -2035,19 +2087,27 @@ function viewQuincenas(compact = false){
   `;
 }
 
-/* VISTA CUENTAS */
+/* VISTA CUENTAS ORDENADA POR INTERÉS DE MAYOR A MENOR */
 function viewCuentasIAMoney(){
-  const activas = data.deudas.filter(d => d.activo);
+  const activas = sortByInterestDesc(data.deudas.filter(d => d.activo));
   return `
     <div class="section-head" style="margin-top:4px">
       <h2 class="section-title" style="font-size:20px">Cuentas (${activas.length})</h2>
       <button class="btn primary small" onclick="openAccountTypeChooser()">+ Agregar</button>
     </div>
-    <div class="hint" style="margin:-4px 0 12px">Toca para ver interés diario y tiempo estimado · Mantén presionado para editar o eliminar.</div>
+    <div class="hint" style="margin:-4px 0 12px">Ordenadas de mayor a menor tasa de interés · Mantén presionado para editar o eliminar.</div>
     ${activas.map(d => {
       const vis = getBankVisual(d);
       const met = getDebtMetrics(d);
-      const tipoTxt = d.tipo === 'tarjeta' ? 'Tarjeta de crédito' : (d.tipo === 'revolvente' ? 'Cupo rotativo' : 'Crédito / Cuota fija');
+      const cupo = Number(d.cupoTotal) || 0;
+      const pctUso = (met.esTarjeta && cupo > 0) ? Math.min(100, Math.round((Number(d.saldoActual) / cupo) * 100)) : 0;
+      const tipoTxt = met.esTarjeta
+        ? `Tarjeta de crédito · ${pctUso}% cupo usado`
+        : (met.cuotaVariable ? 'Cupo rotativo · Cuota variable' : 'Crédito decreciente / Cuota fija');
+      const terceraPill = met.esTarjeta
+        ? (cupo > 0 ? `Disp. ${fmtCompact(Math.max(0, cupo - Number(d.saldoActual)))}` : 'Tarjeta de crédito')
+        : formatTiempoEstimado(met.mesesRestantes, met.cuotaVariable, false);
+
       return `<div class="account-list-item"
         onpointerdown="handlePressStart(event,'account','${d.id}')"
         onpointermove="handlePressMove(event)"
@@ -2063,7 +2123,7 @@ function viewCuentasIAMoney(){
             <div class="acc-item-pills">
               <span class="mini-rate-pill ${met.tasaM > 0 ? 'warn' : ''}">${met.tasaM > 0 ? `Tasa ${met.tasaM}% MV` : '0% interés'}</span>
               ${met.interesDia > 0 ? `<span class="mini-rate-pill warn">~${fmt(met.interesDia)}/día</span>` : ''}
-              <span class="mini-rate-pill">${formatTiempoEstimado(met.mesesRestantes)}</span>
+              <span class="mini-rate-pill">${terceraPill}</span>
             </div>
           </div>
         </div>
@@ -2096,6 +2156,13 @@ function openAccountDetailModal(id){
   const verTodo = !!showOldHistory[d.id];
   const visibles = verTodo ? historial : movsCorte;
 
+  const thirdCellLabel = esTarjeta
+    ? 'Cupo disponible'
+    : (met.cuotaVariable ? 'Modalidad cuota' : 'Tiempo estimado');
+  const thirdCellValue = esTarjeta
+    ? (cupo > 0 ? fmt(disponible) : 'Tarjeta')
+    : (met.cuotaVariable ? 'Según saldo' : formatTiempoEstimado(met.mesesRestantes, false, false));
+
   document.getElementById('modal-root').innerHTML = `
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
       <div class="modal">
@@ -2103,7 +2170,7 @@ function openAccountDetailModal(id){
         <div class="detail-hero">
           <div class="detail-logo" style="background:${vis.bg};color:${vis.color}">${vis.svg}</div>
           <h3>${escapeHtml(d.nombre)}</h3>
-          <div class="modal-sub" style="margin-bottom:0">${esTarjeta ? (d.red || 'Tarjeta de crédito') : (esRotativo ? 'Cupo rotativo' : 'Crédito / Cuota fija')}</div>
+          <div class="modal-sub" style="margin-bottom:0">${esTarjeta ? (d.red || 'Tarjeta de crédito') : (met.cuotaVariable ? 'Cupo rotativo · Cuota variable según saldo' : 'Crédito decreciente · Cuota fija')}</div>
         </div>
 
         <div class="metrics-box">
@@ -2116,8 +2183,8 @@ function openAccountDetailModal(id){
             <strong style="color:${met.interesDia > 0 ? 'var(--red)' : 'var(--ink)'}">~${fmt(met.interesDia)}</strong>
           </div>
           <div class="metric-cell">
-            <small>Tiempo estimado</small>
-            <strong style="color:#7ea3ff">${formatTiempoEstimado(met.mesesRestantes)}</strong>
+            <small>${thirdCellLabel}</small>
+            <strong style="color:${esTarjeta ? 'var(--green)' : '#7ea3ff'}">${thirdCellValue}</strong>
           </div>
         </div>
 
@@ -2133,17 +2200,18 @@ function openAccountDetailModal(id){
           </div>
           <div class="detail-row"><span>Cupo total aprobado</span><strong>${fmt(cupo)}</strong></div>
         ` : `
-          <div class="detail-row" style="border-top:1px solid var(--border)"><span>Deuda actual</span><strong style="font-size:18px">${fmt(deudaAct)}</strong></div>
-          ${d.cuotasTotales ? `<div class="detail-row"><span>Progreso de cuotas</span><strong>${Number(d.cuotasPagadas)||0} de ${d.cuotasTotales} pagadas</strong></div>` : ''}
+          <div class="detail-row" style="border-top:1px solid var(--border)"><span>Saldo pendiente por pagar</span><strong style="font-size:18px">${fmt(deudaAct)}</strong></div>
+          ${d.tipo === 'cuota_fija' && d.cuotasTotales && met.tasaM <= 0 ? `<div class="detail-row"><span>Progreso de cuotas</span><strong>${Number(d.cuotasPagadas)||0} de ${d.cuotasTotales} pagadas</strong></div>` : ''}
         `}
 
         <div class="detail-row">
           <div>
-            <span>Próximo pago</span>
+            <span>${met.cuotaVariable ? 'Cuota estimada actual (varía con saldo)' : (d.id === 'd_bdb' ? 'Cuota mensual fija (abonos bajan plazo)' : 'Próximo pago')}</span>
             <div style="font-size:11px;color:var(--ink-soft)">Día ${d.quincenaPago === 'ambas' ? '5 y 20' : d.quincenaPago}</div>
           </div>
           <strong>${fmt(d.cuotaValor)}</strong>
         </div>
+        ${met.mesesConAbonoPlaneado ? `<div class="detail-row"><span>Simulación si abonas ${fmt(data.config.abonoBdbSimulado)}/mes</span><strong style="color:var(--green)">${formatTiempoEstimado(met.mesesConAbonoPlaneado, false, false)}</strong></div>` : ''}
         ${met.interesMes > 0 ? `<div class="detail-row"><span>Interés mensual proyectado</span><strong style="color:var(--amber)">~${fmt(met.interesMes)} / mes</strong></div>` : ''}
         <div class="detail-row"><span>Día de corte</span><strong>${d.corteDia || 20}</strong></div>
         <div class="detail-row"><span>Última actualización interés</span><strong>${fechaLabel(d.fechaUltimaActualizacion)}</strong></div>
@@ -2154,7 +2222,7 @@ function openAccountDetailModal(id){
           <button class="btn ghost full" onclick="openDeudaForm('${d.id}')">Editar cuenta y color</button>
         </div>
 
-        ${(esTarjeta || esRotativo) ? `<button class="text-action-btn" onclick="actualizarSaldoTarjeta('${d.id}')">Ajustar deuda manual</button>` : ''}
+        ${(esTarjeta || esRotativo) ? `<button class="text-action-btn" onclick="actualizarSaldoTarjeta('${d.id}')">Ajustar deuda / cuota manual</button>` : ''}
         <button class="text-action-btn muted" onclick="closeModal()">Cerrar</button>
 
         <div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)">
@@ -2201,13 +2269,13 @@ function openAccountTypeChooser(){
           </button>
           <button class="type-select-card green" onclick="openDeudaForm(null, 'cuota_fija')">
             <div class="type-icon-box">◷</div>
-            <div class="type-card-title">Crédito / Cuota fija</div>
-            <div class="type-card-sub">Plazo cerrado (Addi, seguros)</div>
+            <div class="type-card-title">Crédito decreciente</div>
+            <div class="type-card-sub">Préstamo cerrado hasta $0</div>
           </button>
           <button class="type-select-card amber" onclick="openDeudaForm(null, 'revolvente')">
             <div class="type-icon-box">↗</div>
             <div class="type-card-title">Cupo rotativo</div>
-            <div class="type-card-sub">Línea reutilizable (Colsubsidio)</div>
+            <div class="type-card-sub">Cuota variable según saldo</div>
           </button>
         </div>
       </div>
@@ -2258,13 +2326,13 @@ function openDeudaForm(editId = null, defaultTipo = 'tarjeta'){
 
   const bannerTitle = tipo === 'tarjeta'
     ? 'Tarjeta de crédito'
-    : (tipo === 'revolvente' ? 'Cupo rotativo (línea reutilizable)' : 'Crédito / Cuota fija (plazo cerrado)');
+    : (tipo === 'revolvente' ? 'Cupo rotativo (cuota variable según saldo)' : 'Crédito decreciente / Cuota fija');
 
   const bannerHint = tipo === 'tarjeta'
-    ? 'Libera cupo al pagar y permite compras a 1 o varias cuotas.'
+    ? 'Libera cupo al pagar y permite compras a 1 o varias cuotas (no se mide por tiempo fijo).'
     : (tipo === 'revolvente'
-      ? 'Al pagar liberas cupo que puedes volver a retirar; el interés se liquida sobre el saldo usado.'
-      : 'Préstamo cerrado con número fijo de cuotas; al pagar baja el saldo hasta cerrarse.');
+      ? 'No tiene un número fijo de meses: al pagar liberas cupo y la cuota baja o sube proporcionalmente al saldo que debes.'
+      : 'Crédito cerrado que va disminuyendo con cada pago hasta desaparecer en $0 (sin cupo disponible).');
 
   document.getElementById('modal-root').innerHTML = `
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
@@ -2297,7 +2365,7 @@ function openDeudaForm(editId = null, defaultTipo = 'tarjeta'){
             ${redes.map(r => `<button type="button" class="net-pill ${redActual === r ? 'active' : ''}" onclick="selectNetPill(this, '${r}')">${r}</button>`).join('')}
           </div>
           <input type="hidden" id="d-red" value="${escapeHtml(d && d.red ? d.red : 'Visa · Clásica')}">
-        ` : `<input type="hidden" id="d-red" value="${escapeHtml(d && d.red ? d.red : (tipo === 'revolvente' ? 'Cupo rotativo' : 'Cuota fija'))}">`}
+        ` : `<input type="hidden" id="d-red" value="${escapeHtml(d && d.red ? d.red : (tipo === 'revolvente' ? 'Cupo rotativo' : 'Crédito decreciente'))}">`}
 
         ${(tipo === 'tarjeta' || tipo === 'revolvente') ? `
           <label>Cupo total aprobado</label>
@@ -2320,7 +2388,7 @@ function openDeudaForm(editId = null, defaultTipo = 'tarjeta'){
           </div>
         </div>
 
-        <label>${tipo === 'revolvente' ? 'Saldo utilizado actual' : 'Deuda actual'}</label>
+        <label>${tipo === 'revolvente' ? 'Saldo utilizado actual' : 'Saldo pendiente actual'}</label>
         <div class="input-with-suffix">
           <input type="number" id="d-saldo" min="0" value="${d ? Number(d.saldoActual)||0 : 0}" oninput="autoCalcularCuotaDeuda()">
           <span class="input-suffix">COP</span>
@@ -2330,7 +2398,7 @@ function openDeudaForm(editId = null, defaultTipo = 'tarjeta'){
           <div class="two-col">
             <div>
               <label>Cuotas totales</label>
-              <input type="number" id="d-cuotas" min="1" max="120" value="${d && d.cuotasTotales ? Number(d.cuotasTotales) : ''}" placeholder="Ej. 2, 6, 12" oninput="autoCalcularCuotaDeuda()">
+              <input type="number" id="d-cuotas" min="1" max="120" value="${d && d.cuotasTotales ? Number(d.cuotasTotales) : ''}" placeholder="Ej. 2, 6, 12, 24" oninput="autoCalcularCuotaDeuda()">
             </div>
             <div>
               <label>Cuotas ya pagadas</label>
@@ -2345,8 +2413,8 @@ function openDeudaForm(editId = null, defaultTipo = 'tarjeta'){
         ` : `
           <div class="two-col">
             <div>
-              <label>${tipo === 'revolvente' ? 'Plazo diferido (meses)' : 'Cuotas (opcional)'}</label>
-              <input type="number" id="d-cuotas" min="1" max="120" value="${d && d.cuotasTotales ? Number(d.cuotasTotales) : ''}" placeholder="Opcional" oninput="autoCalcularCuotaDeuda()">
+              <label>${tipo === 'revolvente' ? 'Plazo (dejar vacío si es variable)' : 'Cuotas (opcional)'}</label>
+              <input type="number" id="d-cuotas" min="1" max="120" value="${d && d.cuotasTotales ? Number(d.cuotasTotales) : ''}" placeholder="${tipo === 'tarjeta' ? 'Según compras' : 'Variable según saldo'}" oninput="autoCalcularCuotaDeuda()">
             </div>
             <div>
               <label>Tasa mensual (% MV)</label>
@@ -2359,7 +2427,7 @@ function openDeudaForm(editId = null, defaultTipo = 'tarjeta'){
           <input type="hidden" id="d-cuotas-pagadas" value="${d ? Number(d.cuotasPagadas)||0 : 0}">
         `}
 
-        <label>${tipo === 'tarjeta' ? 'Pago mínimo proyectado periodo' : (tipo === 'revolvente' ? 'Cuota mínima mensual' : 'Valor cuota fija mensual')}</label>
+        <label>${tipo === 'tarjeta' ? 'Pago proyectado extracto actual' : (tipo === 'revolvente' ? 'Cuota actual del extracto' : 'Valor cuota fija mensual')}</label>
         <div class="input-with-suffix">
           <input type="number" id="d-cuota" min="0" value="${d ? Number(d.cuotaValor)||0 : 0}" oninput="autoCalcularCuotaDeuda(false)">
           <span class="input-suffix">COP</span>
@@ -2388,6 +2456,7 @@ function selectNetPill(el, net){
 }
 
 function autoCalcularCuotaDeuda(recalcCuota = true){
+  const tipo = document.getElementById('d-tipo')?.value || 'tarjeta';
   const saldo = Number(document.getElementById('d-saldo')?.value) || 0;
   const cuotasTot = Math.max(0, Math.round(Number(document.getElementById('d-cuotas')?.value) || 0));
   const cuotasPag = Math.max(0, Math.round(Number(document.getElementById('d-cuotas-pagadas')?.value) || 0));
@@ -2395,12 +2464,15 @@ function autoCalcularCuotaDeuda(recalcCuota = true){
   const cuotaEl = document.getElementById('d-cuota');
   const hintEl = document.getElementById('d-cuota-hint');
   const restantes = cuotasTot > 0 ? Math.max(1, cuotasTot - cuotasPag) : 0;
-  if(recalcCuota && saldo > 0 && restantes > 0 && cuotaEl){
+  if(recalcCuota && tipo === 'cuota_fija' && saldo > 0 && restantes > 0 && cuotaEl){
     cuotaEl.value = calcularValorCuota(saldo, tasa, restantes);
   }
-  const met = getDebtMetrics({ saldoActual: saldo, tasaInteresMensual: tasa, cuotaValor: Number(cuotaEl?.value)||0, cuotasTotales: cuotasTot || null, cuotasPagadas: cuotasPag });
+  const met = getDebtMetrics({ tipo, saldoActual: saldo, tasaInteresMensual: tasa, cuotaValor: Number(cuotaEl?.value)||0, cuotasTotales: cuotasTot || null, cuotasPagadas: cuotasPag });
   if(hintEl){
-    hintEl.innerHTML = `Interés diario aprox: <strong>~${fmt(met.interesDia)}/día</strong> · Tiempo estimado: <strong>${formatTiempoEstimado(met.mesesRestantes)}</strong>`;
+    const tiempoTxt = met.esTarjeta
+      ? 'Tarjeta de crédito (sin plazo fijo)'
+      : (met.cuotaVariable ? 'Cuota variable según saldo' : formatTiempoEstimado(met.mesesRestantes, false, false));
+    hintEl.innerHTML = `Interés diario aprox: <strong>~${fmt(met.interesDia)}/día</strong> · Modalidad: <strong>${tiempoTxt}</strong>`;
   }
 }
 
@@ -2410,7 +2482,7 @@ function guardarDeuda(editId){
   const tipo = document.getElementById('d-tipo').value;
   const red = document.getElementById('d-red').value;
   const cupoEl = document.getElementById('d-cupo');
-  const cupoTotal = cupoEl ? Number(cupoEl.value) || 0 : 0;
+  const cupoTotal = (tipo === 'tarjeta' || tipo === 'revolvente') && cupoEl ? Number(cupoEl.value) || 0 : 0;
   const saldo = Number(document.getElementById('d-saldo').value) || 0;
   const cuotasRaw = Number(document.getElementById('d-cuotas')?.value);
   const cuotasTotales = Number.isFinite(cuotasRaw) && cuotasRaw > 0 ? Math.round(cuotasRaw) : null;
@@ -2422,10 +2494,14 @@ function guardarDeuda(editId){
   const hoy = toISO(new Date());
 
   if(!nombre){ alert('Ingresa el nombre de la cuenta.'); return; }
-  if(!cuota && saldo > 0 && cuotasTotales){
+  if(!cuota && tipo === 'cuota_fija' && saldo > 0 && cuotasTotales){
     const rest = Math.max(1, cuotasTotales - cuotasPagadas);
     cuota = calcularValorCuota(saldo, interes, rest);
   }
+
+  const factorVar = (tipo === 'revolvente' && !cuotasTotales && saldo > 0 && cuota > 0)
+    ? Math.max(0.03, Math.min(0.25, cuota / saldo))
+    : undefined;
 
   if(editId){
     const d = data.deudas.find(x => x.id === editId);
@@ -2433,12 +2509,14 @@ function guardarDeuda(editId){
     d.nombre = nombre; d.color = color; d.tipo = tipo; d.red = red; d.cupoTotal = cupoTotal;
     d.saldoActual = saldo; d.cuotasTotales = cuotasTotales; d.cuotasPagadas = cuotasPagadas;
     d.tasaInteresMensual = interes; d.cuotaValor = cuota;
+    if(factorVar) d.factorCuotaVariable = factorVar;
     d.quincenaPago = diaPago; d.corteDia = corteDia; d.fechaUltimaActualizacion = hoy;
   } else {
     data.deudas.push({
       id: uid('d'), nombre, color, red, tipo, cupoTotal,
       saldoInicial: saldo, saldoActual: saldo,
       tasaInteresMensual: interes, cuotaValor: cuota,
+      factorCuotaVariable: factorVar || 0.071827,
       cuotasTotales, cuotasPagadas,
       quincenaPago: diaPago, corteDia, activo: true,
       fechaUltimaActualizacion: hoy,
@@ -2676,7 +2754,7 @@ function viewAjustes(){
   return `
     <div class="section-head" style="margin-top:4px"><h2 class="section-title">Ingresos y Proyección de Restantes</h2></div>
     <div class="panel-box">
-      <div class="hint" style="margin-top:0;margin-bottom:10px">Ajusta tus ingresos quincenales y el abono planeado al Banco de Bogotá para calcular cuánto te queda libre.</div>
+      <div class="hint" style="margin-top:0;margin-bottom:10px">Simulación personal: ajusta tus ingresos quincenales y el abono planeado al Banco de Bogotá (si te alcanza el sueldo) para ver cuánto te quedaría libre.</div>
       <div class="two-col">
         <div><label style="margin-top:0">Ingreso Quincena Día ${dias[0]} ($)</label><input type="number" id="a-ing5" value="${ing5}" oninput="recalcularRestantesPreview()"></div>
         <div><label style="margin-top:0">Ingreso Quincena Día ${dias[1]} ($)</label><input type="number" id="a-ing20" value="${ing20}" oninput="recalcularRestantesPreview()"></div>
@@ -2740,7 +2818,7 @@ function registrarMovimientoDeuda(id, tipo, defaultNota = ''){
         <p class="modal-sub">${escapeHtml(deuda.nombre)} · Saldo ${fmt(deuda.saldoActual)}</p>
         <label>Cuenta</label>
         <select id="mov-deuda-select" onchange="document.getElementById('mov-deuda-id').value=this.value">
-          ${data.deudas.filter(x=>x.activo).map(x => `<option value="${x.id}" ${x.id===id?'selected':''}>${escapeHtml(x.nombre)}</option>`).join('')}
+          ${sortByInterestDesc(data.deudas.filter(x=>x.activo)).map(x => `<option value="${x.id}" ${x.id===id?'selected':''}>${escapeHtml(x.nombre)}</option>`).join('')}
         </select>
         <input type="hidden" id="mov-deuda-id" value="${id}">
         <label>Monto</label>
@@ -2785,8 +2863,10 @@ function confirmarMovimientoDeuda(tipo){
 
   if(!pago && deuda.tipo === 'tarjeta'){
     deuda.cuotaValor = Math.min(deuda.saldoActual, (Number(deuda.cuotaValor) || 0) + valorCuotaCargo);
-  } else if(pago && deuda.cuotasTotales){
+  } else if(pago && deuda.tipo === 'cuota_fija' && deuda.cuotasTotales){
     deuda.cuotasPagadas = Math.min(deuda.cuotasTotales, (Number(deuda.cuotasPagadas) || 0) + 1);
+  } else if(esCupoCuotaVariable(deuda)){
+    recalcularCuotaRotativaVariable(deuda);
   }
 
   deuda.fechaUltimaActualizacion = toISO(new Date());
@@ -2868,7 +2948,12 @@ function confirmarSaldoTarjeta(id){
   const minimo = Number(document.getElementById('tc-minimo').value);
   if(!Number.isFinite(saldo) || saldo < 0) return;
   d.saldoActual = saldo;
-  if(Number.isFinite(minimo) && minimo >= 0) d.cuotaValor = minimo;
+  if(Number.isFinite(minimo) && minimo >= 0){
+    d.cuotaValor = minimo;
+    if(esCupoCuotaVariable(d) && saldo > 0 && minimo > 0){
+      d.factorCuotaVariable = Math.max(0.03, Math.min(0.25, minimo / saldo));
+    }
+  }
   d.fechaUltimaActualizacion = toISO(new Date());
   saveData(); closeModal(); render();
 }
